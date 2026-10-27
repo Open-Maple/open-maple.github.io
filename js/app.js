@@ -571,9 +571,10 @@
     offscreenCanvas.height = videoH;
     offscreenCtx.drawImage(frameSource, 0, 0, videoW, videoH);
 
-    // Extract bottom ROI (bottom 28% for full window, or full image if pre-cropped ROI)
+    // Extract bottom ROI (adaptive bottom portion for full window, or full image if pre-cropped ROI)
     const isPreCropped = (videoH < 450);
-    const roiH = isPreCropped ? videoH : Math.floor(videoH * 0.28);
+    const minRoiH = Math.min(videoH, Math.max(320, Math.floor(videoH * 0.35)));
+    const roiH = isPreCropped ? videoH : minRoiH;
     const roiY = isPreCropped ? 0 : (videoH - roiH);
     const roiData = offscreenCtx.getImageData(0, roiY, videoW, roiH);
 
@@ -592,7 +593,7 @@
       tracker.addSample(expVal, expPct, barPct);
 
       latestDetection.status = 'LOCKED';
-      latestDetection.details = `${videoW}x${videoH} @ ${expRes.scale.toFixed(1)}x`;
+      latestDetection.details = `${videoW}x${videoH} @ ${expRes.scale.toFixed(2)}x UI`;
       latestDetection.scale = expRes.scale;
       latestDetection.expVal = expVal;
       latestDetection.expPct = expPct;
@@ -642,7 +643,8 @@
       offscreenCtx.drawImage(img, 0, 0);
 
       const isPreCropped = (img.height < 450);
-      const roiH = isPreCropped ? img.height : Math.floor(img.height * 0.28);
+      const minRoiH = Math.min(img.height, Math.max(320, Math.floor(img.height * 0.35)));
+      const roiH = isPreCropped ? img.height : minRoiH;
       const roiY = isPreCropped ? 0 : (img.height - roiH);
       const roiData = offscreenCtx.getImageData(0, roiY, img.width, roiH);
 
@@ -652,7 +654,7 @@
       if (expRes.success) {
         tracker.addSample(expRes.exp_value, expRes.exp_pct, expRes.bar_pct);
         latestDetection.status = 'LOCKED';
-        latestDetection.details = `Demo Frame: ${img.width}x${img.height} @ ${expRes.scale}x`;
+        latestDetection.details = `Demo Frame: ${img.width}x${img.height} @ ${expRes.scale.toFixed(2)}x UI`;
         latestDetection.scale = expRes.scale;
         latestDetection.expVal = expRes.exp_value;
         latestDetection.expPct = expRes.exp_pct;
