@@ -117,6 +117,34 @@ class CVEngine {
   }
 
   /**
+   * Resizes ImageData to (newW, newH) using nearest-neighbor interpolation.
+   * Ideal for pixel-art and pixel fonts at integer or fractional UI scales.
+   */
+  resizeNearest(srcData, newW, newH) {
+    const sw = srcData.width;
+    const sh = srcData.height;
+    const sBuf = srcData.data;
+    const dst = new Uint8ClampedArray(newW * newH * 4);
+
+    for (let y = 0; y < newH; y++) {
+      const sy = Math.min(sh - 1, Math.floor((y + 0.5) * sh / newH));
+      const srcRowOffset = sy * sw;
+      const dstRowOffset = y * newW;
+      for (let x = 0; x < newW; x++) {
+        const sx = Math.min(sw - 1, Math.floor((x + 0.5) * sw / newW));
+        const srcIdx = (srcRowOffset + sx) * 4;
+        const dstIdx = (dstRowOffset + x) * 4;
+        dst[dstIdx] = sBuf[srcIdx];
+        dst[dstIdx + 1] = sBuf[srcIdx + 1];
+        dst[dstIdx + 2] = sBuf[srcIdx + 2];
+        dst[dstIdx + 3] = sBuf[srcIdx + 3];
+      }
+    }
+
+    return { width: newW, height: newH, data: dst };
+  }
+
+  /**
    * Crops a sub-region from ImageData.
    */
   crop(srcData, x, y, w, h) {
@@ -143,7 +171,13 @@ class CVEngine {
    * Normalized cross-correlation (TM_CCOEFF_NORMED equivalent).
    * Works on grayscale buffers.
    */
-  matchTemplateGrayscale(imgGray, imgW, imgH, tmplGray, tmplW, tmplH, optStep = 1, searchRegion = null) {
+  matchTemplateGrayscale(imgGray, imgW, imgH, tmplGray, tmplW, tmplH, optStepX = 1, optStepY = 1, searchRegion = null) {
+    // Backward compatibility if single optStep was passed
+    if (typeof optStepY === 'object' && searchRegion === null) {
+      searchRegion = optStepY;
+      optStepY = optStepX;
+    }
+
     let rx0 = 0, ry0 = 0, rx1 = imgW, ry1 = imgH;
     if (searchRegion) {
       rx0 = Math.max(0, Math.floor(searchRegion.x));
@@ -177,8 +211,8 @@ class CVEngine {
     let bestVal = -1;
     let bestLoc = { x: rx0, y: ry0 };
 
-    for (let y = ry0; y <= maxSearchY; y += optStep) {
-      for (let x = rx0; x <= maxSearchX; x += optStep) {
+    for (let y = ry0; y <= maxSearchY; y += optStepY) {
+      for (let x = rx0; x <= maxSearchX; x += optStepX) {
         // Compute patch mean
         let pSum = 0;
         for (let ty = 0; ty < tmplH; ty++) {
@@ -218,7 +252,7 @@ class CVEngine {
   /**
    * Unified matchTemplate: delegates to OpenCV.js if loaded, or falls back to pure JS.
    */
-  matchTemplate(roiData, tmplData, searchPad = null, scale = 1.0) {
+  matchTemplate(roiData, tmplData, searchPad = null, scale = 1.0, optStepX = 1, optStepY = 1) {
     this._checkOpenCv();
 
     if (this.isOpenCvReady && this.cv) {
@@ -231,26 +265,48 @@ class CVEngine {
           const sw = Math.max(5, Math.round(tmplData.width * scale));
           const sh = Math.max(3, Math.round(tmplData.height * scale));
           const resized = new cv.Mat();
-          cv.resize(tmplMat, resized, new cv.Size(sw, sh), 0, 0, scale < 1.0 ? cv.INTER_AREA : cv.INTER_LINEAR);
+          cv.resize(tmplMat, resized, new cv.Size(sw, sh), 0, 0, scale < 1.0 ? cv.INTER_AREA : cv.INTER_NEAREST);
           tmplMat.delete();
           tmplMat = resized;
         }
 
-        if (roiMat.cols < tmplMat.cols || roiMat.rows < tmplMat.rows) {
+        let searchMat = roiMat;
+        let padX = 0;
+        let padY = 0;
+
+        if (searchPad) {
+          const sx = Math.max(0, Math.min(roiMat.cols - 1, Math.floor(searchPad.x)));
+          const sy = Math.max(0, Math.min(roiMat.rows - 1, Math.floor(searchPad.y)));
+          const sw = Math.max(1, Math.min(roiMat.cols - sx, Math.floor(searchPad.w)));
+          const sh = Math.max(1, Math.min(roiMat.rows - sy, Math.floor(searchPad.h)));
+
+          if (sw >= tmplMat.cols && sh >= tmplMat.rows) {
+            searchMat = roiMat.roi(new cv.Rect(sx, sy, sw, sh));
+            padX = sx;
+            padY = sy;
+          }
+        }
+
+        if (searchMat.cols < tmplMat.cols || searchMat.rows < tmplMat.rows) {
+          if (searchMat !== roiMat) searchMat.delete();
           roiMat.delete();
           tmplMat.delete();
           return { maxVal: -1, maxLoc: { x: 0, y: 0 } };
         }
 
         const resMat = new cv.Mat();
-        cv.matchTemplate(roiMat, tmplMat, resMat, cv.TM_CCOEFF_NORMED);
+        cv.matchTemplate(searchMat, tmplMat, resMat, cv.TM_CCOEFF_NORMED);
         const minMax = cv.minMaxLoc(resMat);
 
+        if (searchMat !== roiMat) searchMat.delete();
         roiMat.delete();
         tmplMat.delete();
         resMat.delete();
 
-        return { maxVal: minMax.maxVal, maxLoc: { x: minMax.maxLoc.x, y: minMax.maxLoc.y } };
+        return {
+          maxVal: minMax.maxVal,
+          maxLoc: { x: minMax.maxLoc.x + padX, y: minMax.maxLoc.y + padY }
+        };
       } catch (err) {
         console.warn('OpenCV.js matchTemplate error, falling back to pure JS:', err);
       }
@@ -261,7 +317,9 @@ class CVEngine {
     if (Math.abs(scale - 1.0) > 0.02) {
       const sw = Math.max(5, Math.round(tmplData.width * scale));
       const sh = Math.max(3, Math.round(tmplData.height * scale));
-      sTmpl = this.resize(tmplData, sw, sh);
+      sTmpl = (scale >= 1.0)
+        ? this.resizeNearest(tmplData, sw, sh)
+        : this.resize(tmplData, sw, sh);
     }
 
     const roiGray = this.toGrayscale(roiData);
@@ -270,7 +328,7 @@ class CVEngine {
     return this.matchTemplateGrayscale(
       roiGray, roiData.width, roiData.height,
       tmplGray, sTmpl.width, sTmpl.height,
-      1, searchPad
+      optStepX, optStepY, searchPad
     );
   }
 }

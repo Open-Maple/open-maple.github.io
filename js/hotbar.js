@@ -188,7 +188,7 @@ class HotbarDetector {
 
       const fy = ly + Math.floor(104 * s);
       const fx = lx;
-      const searchPad = 20;
+      const searchPad = Math.max(20, Math.ceil(25 * s));
 
       const y1 = Math.max(0, fy - searchPad);
       const y2 = Math.min(roiH, fy + Math.floor(this.frameH * s) + searchPad);
@@ -198,7 +198,7 @@ class HotbarDetector {
       if (y2 > y1 + 5 && x2 > x1 + 10) {
         const searchRegion = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
         const res = this.engine.matchTemplate(roiData, this.frameTmpl, searchRegion, s);
-        if (res.maxVal >= 0.70) {
+        if (res.maxVal >= 0.65) {
           bestVal = res.maxVal;
           bestLoc = { x: res.maxLoc.x, y: res.maxLoc.y - Math.floor(104 * s) };
           bestScale = s;
@@ -207,10 +207,10 @@ class HotbarDetector {
     }
 
     // 2. Full scan across ROI using bottom frame anchor
-    if (bestVal < 0.70 && this.frameTmpl) {
+    if (bestVal < 0.65 && this.frameTmpl) {
       const scalesToTest = [];
       if (Math.abs(uiScale - 1.0) > 0.05) scalesToTest.push(uiScale);
-      scalesToTest.push(1.0, 1.25, 1.5, 2.0, 0.8, 0.67);
+      scalesToTest.push(1.0, 1.25, 1.33, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0, 0.8, 0.67);
       const uniqueScales = [...new Set(scalesToTest.map(s => Math.round(s * 100) / 100))];
 
       for (const s of uniqueScales) {
@@ -223,14 +223,14 @@ class HotbarDetector {
           bestVal = res.maxVal;
           bestScale = s;
           bestLoc = { x: res.maxLoc.x, y: res.maxLoc.y - Math.floor(104 * s) };
-          if (bestVal > 0.90) break;
+          if (bestVal > 0.85) break;
         }
       }
     }
 
     // 3. Fallback to Ctrl button template if frame bottom wasn't matched
-    if (bestVal < 0.65 && this.ctrlTmpl) {
-      for (const s of [uiScale, 1.0, 1.25]) {
+    if (bestVal < 0.62 && this.ctrlTmpl) {
+      for (const s of [uiScale, 1.0, 1.25, 1.5, 2.0]) {
         const sw = Math.max(5, Math.floor(this.ctrlW * s));
         const sh = Math.max(5, Math.floor(this.ctrlH * s));
         if (sw > roiW || sh > roiH) continue;
@@ -240,12 +240,12 @@ class HotbarDetector {
           bestVal = res.maxVal;
           bestScale = s;
           bestLoc = { x: res.maxLoc.x - Math.floor(5 * s), y: res.maxLoc.y - Math.floor(73 * s) };
-          if (bestVal > 0.85) break;
+          if (bestVal > 0.82) break;
         }
       }
     }
 
-    if (bestVal < 0.65) {
+    if (bestVal < 0.62) {
       this.consecutiveMisses++;
       if (this.consecutiveMisses > 3) {
         this.isLocked = false;
@@ -270,7 +270,9 @@ class HotbarDetector {
     const gridCrop = this.engine.crop(roiData, gridX, gridY, scaledW, scaledH);
     let normGrid = gridCrop;
     if (Math.abs(bestScale - 1.0) > 0.05) {
-      normGrid = this.engine.resize(gridCrop, this.gridW, this.gridH);
+      normGrid = (typeof this.engine.resizeNearest === 'function')
+        ? this.engine.resizeNearest(gridCrop, this.gridW, this.gridH)
+        : this.engine.resize(gridCrop, this.gridW, this.gridH);
     }
 
     const cells = [];
