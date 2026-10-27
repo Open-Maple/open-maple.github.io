@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🍁 MapleEXP Tracker & Hotbar Alert</title>
+  <link rel="icon" type="image/png" href="icon.png">
+  <link rel="alternate icon" href="icon.ico">
+  <link rel="stylesheet" href="css/style.css">
+  <meta name="description" content="A lightweight, real-time client-side MapleStory EXP & Hotbar tracker webpage running directly in Chrome with Screen Capture, Media Recording, and Picture-in-Picture floating overlay.">
+  <meta name="theme-color" content="#141517">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="app-title-area">
+        <img src="icon.png" alt="Maple Leaf Logo" class="app-logo">
+        <h1 class="app-title">MapleEXP Tracker</h1>
+      </div>
+      <div class="header-badges">
+        <button id="btnPip" class="pip-btn" title="Pop out a compact floating overlay window that stays always on top over MapleStory">
+          📌 Float (PiP)
+        </button>
+      </div>
+    </header>
+
+    <!-- Top Alert Banner (Low Item Quantity Warning) -->
+    <div id="alertBanner" class="alert-banner">
+      <span id="alertBannerText">🚨 LOW ITEM WARNING: Item quantity dropped below threshold!</span>
+    </div>
+
+    <!-- Status Bar -->
+    <div class="status-bar">
+      <div class="status-indicator">
+        <span id="statusDot" class="status-dot searching"></span>
+        <span id="statusText" class="status-text">WAITING</span>
+      </div>
+      <span id="statusDetails" class="status-details">Click "Select Window" to begin</span>
+    </div>
+
+    <!-- Window Capture & Recording Card -->
+    <section class="capture-card">
+      <div class="action-row">
+        <button id="btnSelectWindow" class="btn btn-primary" title="Select your MapleStory game window in Chrome">
+          📹 Select MapleStory Window
+        </button>
+        <button id="btnRecord" class="btn btn-record" style="display: none;" title="Record the application window stream">
+          🔴 Record Window
+        </button>
+        <div id="recordingBadge" class="recording-badge">
+          <span class="recording-dot"></span>
+          <span id="recordingTimer">00:00</span>
+        </div>
+      </div>
+      <div class="action-row">
+        <button id="btnToggleVideo" class="btn btn-secondary" style="display: none;">
+          👁 Show Stream
+        </button>
+        <button id="btnSampleTest" class="btn btn-secondary" title="Test instant detection with a built-in MapleStory screenshot">
+          ⚡ 1-Click Demo Screen
+        </button>
+      </div>
+      <!-- Collapsible Video Stream Container -->
+      <div id="videoContainer" class="video-container">
+        <video id="captureVideo" autoplay playsinline muted></video>
+      </div>
+    </section>
+
+    <!-- Tabs Navigation -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="exp">📈 EXP Tracker</button>
+      <button class="tab-btn" data-tab="hotbar">🎒 Hotbar Settings</button>
+    </nav>
+
+    <!-- TAB 1: EXP Tracker -->
+    <main id="tabContent-exp" class="tab-content active">
+      <!-- Current EXP Hero Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>Current Progress</span>
+          <span id="currentStatusMini" style="color: var(--accent-gold); font-size: 0.75rem;">1 Hz Live Sync</span>
+        </div>
+        <div class="exp-hero">
+          <span id="expHeroNum" class="exp-hero-num">0</span>
+          <span id="expHeroPct" class="exp-hero-pct">[0.00%]</span>
+        </div>
+        <div class="exp-bar-wrapper">
+          <div id="expBarFill" class="exp-bar-fill"></div>
+        </div>
+      </section>
+
+      <!-- Rolling Time Windows Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>Rolling Time Windows</span>
+        </div>
+        <!-- Time Window Selector Pills -->
+        <div class="window-pills">
+          <button class="pill-btn" data-window="1m">1m</button>
+          <button class="pill-btn active" data-window="5m">5m</button>
+          <button class="pill-btn" data-window="10m">10m</button>
+          <button class="pill-btn" data-window="30m">30m</button>
+          <button class="pill-btn" data-window="1h">1h</button>
+        </div>
+
+        <div class="stats-grid-2">
+          <div class="stat-box">
+            <span class="stat-box-label">Gained EXP</span>
+            <span id="statWindowGainExp" class="stat-box-val">+0</span>
+            <span id="statWindowRateExp" class="stat-box-rate">0 / hr</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-box-label">Gained Percent</span>
+            <span id="statWindowGainPct" class="stat-box-val">+0.00%</span>
+            <span id="statWindowRatePct" class="stat-box-rate">0.00% / hr</span>
+          </div>
+        </div>
+
+        <!-- 128-Slice Sparkline Graph -->
+        <div class="sparkline-container">
+          <canvas id="sparklineCanvas"></canvas>
+          <div id="sparklineTooltip" class="sparkline-tooltip"></div>
+        </div>
+      </section>
+
+      <!-- Comprehensive Session Analytics Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>Session Analytics</span>
+        </div>
+        <div class="session-grid">
+          <div class="session-stat eta-highlight">
+            <span class="session-stat-label">Level Up Projection</span>
+            <span id="statSessionEta" class="session-stat-val" style="color: #38bdf8; font-size: 0.95rem;">ETA: Calculating...</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Session Duration</span>
+            <span id="statSessionDuration" class="session-stat-val">00:00:00</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Total Gained EXP</span>
+            <span id="statSessionGainedExp" class="session-stat-val">+0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Total Gained %</span>
+            <span id="statSessionGainedPct" class="session-stat-val">+0.00%</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Session EXP / hr</span>
+            <span id="statSessionRateExp" class="session-stat-val">0 / hr</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Session % / hr</span>
+            <span id="statSessionRatePct" class="session-stat-val">0.00% / hr</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Level Ups</span>
+            <span id="statSessionLevelUps" class="session-stat-val" style="color: var(--accent-gold);">+0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Anomalies Filtered</span>
+            <span id="statSessionAnomalies" class="session-stat-val">0</span>
+          </div>
+        </div>
+
+        <!-- EXP Crop Preview Drawer -->
+        <div class="preview-drawer">
+          <button id="previewToggle" class="preview-toggle">▶ Show Live EXP Bar Crop</button>
+          <div id="previewContent" class="preview-content">
+            <canvas id="expCropCanvas" class="preview-canvas"></canvas>
+            <span id="expOcrDebug" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">Raw OCR: None</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 2: Hotbar Settings -->
+    <main id="tabContent-hotbar" class="tab-content">
+      <section class="card">
+        <div class="card-title">
+          <span>🎒 Quickslot Item Monitor (3x4 Grid)</span>
+          <span style="font-size: 0.72rem; color: var(--text-muted);">Click any cell to monitor</span>
+        </div>
+        <div class="hotbar-container">
+          <!-- 3x4 Quickslot Buttons -->
+          <div id="hotbarGrid" class="hotbar-grid"></div>
+
+          <!-- Selected Cell Configuration Card -->
+          <div class="config-card">
+            <div class="config-header">
+              <span id="configCellName" class="config-cell-name">Slot [Pdn] Config</span>
+              <label class="toggle-label">
+                <input type="checkbox" id="configCellEnable">
+                Enable Alert
+              </label>
+            </div>
+
+            <div class="stepper-row">
+              <button id="stepperMinus" class="stepper-btn" title="Decrease threshold">-</button>
+              <input type="number" id="configThresholdInput" class="stepper-input" value="20" min="0" max="9999">
+              <button id="stepperPlus" class="stepper-btn" title="Increase threshold">+</button>
+            </div>
+
+            <div class="presets-row">
+              <button class="preset-btn" data-val="10">10</button>
+              <button class="preset-btn" data-val="20">20</button>
+              <button class="preset-btn" data-val="50">50</button>
+              <button class="preset-btn" data-val="100">100</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Actions / Controls -->
+    <footer class="footer-controls">
+      <button id="btnPause" class="footer-btn">⏸ Pause</button>
+      <button id="btnReset" class="footer-btn">🔄 Reset</button>
+      <button id="btnMute" class="footer-btn">🔊 Sound On</button>
+      <button id="btnExport" class="footer-btn">💾 Export CSV</button>
+    </footer>
+  </div>
+
+  <!-- Offscreen Processing Canvas -->
+  <canvas id="offscreenCanvas"></canvas>
+
+  <!-- Picture-in-Picture Floating Overlay Video & Canvas -->
+  <canvas id="pipCanvas" width="360" height="190"></canvas>
+  <video id="pipVideo" autoplay playsinline muted></video>
+
+  <!-- Optional OpenCV.js WebAssembly Accelerator (asynchronously loaded) -->
+  <script async src="https://docs.opencv.org/4.8.0/opencv.js" type="text/javascript"></script>
+
+  <!-- Application Modules -->
+  <script src="js/templates.js"></script>
+  <script src="js/sample-data.js"></script>
+  <script src="js/cv-engine.js"></script>
+  <script src="js/detector.js"></script>
+  <script src="js/hotbar.js"></script>
+  <script src="js/tracker.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
