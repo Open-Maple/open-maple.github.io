@@ -3,19 +3,13 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live%20Web%20App-brightgreen?style=for-the-badge&logo=github)](https://open-maple.github.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
-> # 🛑 "Open source like they SHOULD be. Completely offline."
+> # 🍁 Free. Open source. Vibecoded. All local. 0 sketchy.
+> ### *...unlike these other apps.*
 >
-> Half the new gaming tools dropping today are clearly **vibecoded in an afternoon with AI**—so why the hell are they **closed-source for no reason**?
->
-> Why is anyone shipping closed-source, black-box `.exe` files, gatekeeping AI-generated code behind Discord logins, forcing online accounts, or running sketchy background telemetry just to read numbers off your game screen? Vibecoded software should be free, open source, and transparent—not a sketchy closed-source grift.
->
-> **MapleEXP Tracker is open source like they SHOULD be:**
->
-> - 🔓 **100% Open Source** — Every single line of code is right here to inspect, audit, and fork. No gatekeeping, no closed-source secrecy.
-> - 🔌 **Completely Offline** — All OCR, computer vision, and battle analysis math run directly on your CPU in-browser. Rip your ethernet cable out mid-grind and it won't drop a single frame.
-> - 🛡️ **Zero Sketchy Binaries** — No mystery `.exe` files, no installers asking for admin permissions, and no hidden background daemons.
-> - ❌ **No Logins, No Discord Gates** — We don't want your email, your Discord token, or your data. Just open the page and use it.
-> - ❌ **Zero Telemetry** — Zero tracking, zero pings, zero surveillance. Your grind stays strictly in your own RAM.
+> - 🟢 **100% Free & Open Source** — No paywalls, no closed-source secrecy.
+> - ⚡ **Vibecoded for the Community** — Built fast with modern AI tools and given away completely free.
+> - 🔌 **All Local & Offline** — Runs in your browser directly on your CPU. Zero cloud dependencies.
+> - 🛡️ **0% Sketchy** — No Discord logins, no mandatory accounts, zero telemetry, no mystery `.exe` files.
 >
 > ---
 > 🌐 **Live Web App**: **[open-maple.github.io](https://open-maple.github.io/)**  
