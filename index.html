@@ -68,18 +68,13 @@
         <button id="btnRecord" class="btn btn-record" style="display: none;" title="Record the application window stream">
           🔴 Record Window
         </button>
+        <button id="btnToggleVideo" class="btn btn-secondary" style="display: none;">
+          👁 Show Stream
+        </button>
         <div id="recordingBadge" class="recording-badge">
           <span class="recording-dot"></span>
           <span id="recordingTimer">00:00</span>
         </div>
-      </div>
-      <div class="action-row">
-        <button id="btnToggleVideo" class="btn btn-secondary" style="display: none;">
-          👁 Show Stream
-        </button>
-        <button id="btnSampleTest" class="btn btn-secondary" title="Test instant detection with a built-in MapleStory screenshot">
-          ⚡ 1-Click Demo Screen
-        </button>
       </div>
       <!-- Collapsible Video Stream Container -->
       <div id="videoContainer" class="video-container">
@@ -111,37 +106,91 @@
         </div>
       </section>
 
-      <!-- Rolling Time Windows Card -->
+      <!-- Rolling Time Windows Card (Multi-Window Live View + Sliding Chart) -->
       <section class="card">
         <div class="card-title">
           <span>Rolling Time Windows</span>
-        </div>
-        <!-- Time Window Selector Pills -->
-        <div class="window-pills">
-          <button class="pill-btn" data-window="1m">1m</button>
-          <button class="pill-btn active" data-window="5m">5m</button>
-          <button class="pill-btn" data-window="10m">10m</button>
-          <button class="pill-btn" data-window="30m">30m</button>
-          <button class="pill-btn" data-window="1h">1h</button>
+          <span style="font-size: 0.72rem; color: #58a6ff; font-weight: 600;">All 5 Windows Live</span>
         </div>
 
-        <div class="stats-grid-2">
-          <div class="stat-box">
-            <span class="stat-box-label">Gained EXP</span>
-            <span id="statWindowGainExp" class="stat-box-val">+0</span>
-            <span id="statWindowRateExp" class="stat-box-rate">0 / hr</span>
-          </div>
-          <div class="stat-box">
-            <span class="stat-box-label">Gained Percent</span>
-            <span id="statWindowGainPct" class="stat-box-val">+0.00%</span>
-            <span id="statWindowRatePct" class="stat-box-rate">0.00% / hr</span>
-          </div>
+        <!-- Multi-Window Overview Table -->
+        <div class="windows-table-container">
+          <table class="windows-table">
+            <thead>
+              <tr>
+                <th style="width: 52px; text-align: left;">Window</th>
+                <th style="text-align: center;">Trend</th>
+                <th style="text-align: right;">Gained EXP</th>
+                <th style="text-align: right;">% Gained</th>
+                <th style="text-align: right;">Rate / Hr</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="window-row" data-window="1m" title="Click to view 1m sliding graph">
+                <td><span class="window-badge">1m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="miniSparkline-1m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainExp-1m">+0</td>
+                <td class="stat-cell stat-pct" id="statRowGainPct-1m">+0.00%</td>
+                <td class="stat-cell stat-rate" id="statRowRateExp-1m">0 / hr</td>
+              </tr>
+              <tr class="window-row active" data-window="5m" title="Click to view 5m sliding graph">
+                <td><span class="window-badge">5m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="miniSparkline-5m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainExp-5m">+0</td>
+                <td class="stat-cell stat-pct" id="statRowGainPct-5m">+0.00%</td>
+                <td class="stat-cell stat-rate" id="statRowRateExp-5m">0 / hr</td>
+              </tr>
+              <tr class="window-row" data-window="10m" title="Click to view 10m sliding graph">
+                <td><span class="window-badge">10m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="miniSparkline-10m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainExp-10m">+0</td>
+                <td class="stat-cell stat-pct" id="statRowGainPct-10m">+0.00%</td>
+                <td class="stat-cell stat-rate" id="statRowRateExp-10m">0 / hr</td>
+              </tr>
+              <tr class="window-row" data-window="30m" title="Click to view 30m sliding graph">
+                <td><span class="window-badge">30m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="miniSparkline-30m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainExp-30m">+0</td>
+                <td class="stat-cell stat-pct" id="statRowGainPct-30m">+0.00%</td>
+                <td class="stat-cell stat-rate" id="statRowRateExp-30m">0 / hr</td>
+              </tr>
+              <tr class="window-row" data-window="1h" title="Click to view 1h sliding graph">
+                <td><span class="window-badge">1h</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="miniSparkline-1h" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainExp-1h">+0</td>
+                <td class="stat-cell stat-pct" id="statRowGainPct-1h">+0.00%</td>
+                <td class="stat-cell stat-rate" id="statRowRateExp-1h">0 / hr</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        <!-- 128-Slice Sparkline Graph -->
-        <div class="sparkline-container">
-          <canvas id="sparklineCanvas"></canvas>
-          <div id="sparklineTooltip" class="sparkline-tooltip"></div>
+        <!-- Detailed Sliding Graph Section -->
+        <div class="detailed-graph-section">
+          <div class="detailed-graph-title-row">
+            <span id="detailedGraphTitle" class="detailed-graph-title">📈 Sliding EXP Rate (5m Window)</span>
+            <!-- Time Window Selector Pills -->
+            <div class="window-pills">
+              <button class="pill-btn" data-window="1m">1m</button>
+              <button class="pill-btn active" data-window="5m">5m</button>
+              <button class="pill-btn" data-window="10m">10m</button>
+              <button class="pill-btn" data-window="30m">30m</button>
+              <button class="pill-btn" data-window="1h">1h</button>
+            </div>
+          </div>
+
+          <!-- Active Window Metric Strip -->
+          <div class="graph-metrics-strip">
+            <span id="statGraphPeak" class="graph-metric-item peak">Peak: +0 EXP</span>
+            <span id="statGraphAvg" class="graph-metric-item avg">Avg: 0.0 EXP/s</span>
+            <span id="statGraphRate" class="graph-metric-item rate">Rate: 0 / hr</span>
+          </div>
+
+          <!-- Live Sliding Battle Analysis Canvas -->
+          <div class="sparkline-container">
+            <canvas id="sparklineCanvas"></canvas>
+            <div id="sparklineTooltip" class="sparkline-tooltip"></div>
+          </div>
         </div>
       </section>
 

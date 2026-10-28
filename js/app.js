@@ -148,7 +148,6 @@
   const recordingBadge = document.getElementById('recordingBadge');
   const recordingTimer = document.getElementById('recordingTimer');
   const btnToggleVideo = document.getElementById('btnToggleVideo');
-  const btnSampleTest = document.getElementById('btnSampleTest');
   const btnPip = document.getElementById('btnPip');
 
   const videoContainer = document.getElementById('videoContainer');
@@ -164,10 +163,10 @@
   const expHeroPct = document.getElementById('expHeroPct');
   const expBarFill = document.getElementById('expBarFill');
 
-  const statWindowGainExp = document.getElementById('statWindowGainExp');
-  const statWindowGainPct = document.getElementById('statWindowGainPct');
-  const statWindowRateExp = document.getElementById('statWindowRateExp');
-  const statWindowRatePct = document.getElementById('statWindowRatePct');
+  const detailedGraphTitle = document.getElementById('detailedGraphTitle');
+  const statGraphPeak = document.getElementById('statGraphPeak');
+  const statGraphAvg = document.getElementById('statGraphAvg');
+  const statGraphRate = document.getElementById('statGraphRate');
   const sparklineCanvas = document.getElementById('sparklineCanvas');
   const sparklineCtx = sparklineCanvas.getContext('2d');
   const sparklineTooltip = document.getElementById('sparklineTooltip');
@@ -383,6 +382,9 @@
     if (target) {
       target.classList.add('active');
       activeTab = tabId;
+      if (activeTab === 'exp') {
+        startSlidingChartLoop();
+      }
     }
   }
 
@@ -457,14 +459,41 @@
   window.addEventListener('offline', updateOfflineStatusUI);
   updateOfflineStatusUI();
 
+  const WINDOW_SEC = {
+    '1m': 60,
+    '5m': 300,
+    '10m': 600,
+    '30m': 1800,
+    '1h': 3600
+  };
+
+  function selectWindow(winKey) {
+    if (!WINDOW_SEC[winKey]) return;
+    selectedWindow = winKey;
+    saveInputsToStorage();
+
+    document.querySelectorAll('.pill-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.window === selectedWindow);
+    });
+
+    document.querySelectorAll('.window-row').forEach(row => {
+      row.classList.toggle('active', row.dataset.window === selectedWindow);
+    });
+
+    updateWindowStatsUI();
+  }
+
+  // Window Table Rows
+  document.querySelectorAll('.window-row').forEach(row => {
+    row.addEventListener('click', () => {
+      selectWindow(row.dataset.window);
+    });
+  });
+
   // Window Pills (1m, 5m, 10m, 30m, 1h)
   document.querySelectorAll('.pill-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      selectedWindow = btn.dataset.window;
-      saveInputsToStorage();
-      updateWindowStatsUI();
+      selectWindow(btn.dataset.window);
     });
   });
 
@@ -705,53 +734,6 @@
     setTimeout(processFrame, 1000);
   }
 
-  // Sample Screen 1-Click Browser Demo
-  btnSampleTest.addEventListener('click', () => {
-    if (typeof SAMPLE_CAPTURE_B64 === 'undefined') {
-      alert('Sample test image not available');
-      return;
-    }
-    const img = new Image();
-    img.onload = () => {
-      offscreenCanvas.width = img.width;
-      offscreenCanvas.height = img.height;
-      offscreenCtx.drawImage(img, 0, 0);
-
-      const isPreCropped = (img.height < 450);
-      const minRoiH = Math.min(img.height, Math.max(320, Math.floor(img.height * 0.35)));
-      const roiH = isPreCropped ? img.height : minRoiH;
-      const roiY = isPreCropped ? 0 : (img.height - roiH);
-      const roiData = offscreenCtx.getImageData(0, roiY, img.width, roiH);
-
-      const expRes = expDetector.detect(roiData, img.width, img.height);
-      const hotbarRes = hotbarDetector.detect(roiData, expRes.scale || 1.0);
-
-      if (expRes.success) {
-        tracker.addSample(expRes.exp_value, expRes.exp_pct, expRes.bar_pct);
-        latestDetection.status = 'LOCKED';
-        latestDetection.details = `Demo Frame: ${img.width}x${img.height} @ ${expRes.scale.toFixed(2)}x UI`;
-        latestDetection.scale = expRes.scale;
-        latestDetection.expVal = expRes.exp_value;
-        latestDetection.expPct = expRes.exp_pct;
-
-        updateStatus('LOCKED', latestDetection.details, 'locked');
-        updateExpHeroUI(expRes.exp_value, expRes.exp_pct);
-        if (expRes.crop_data) updateExpCropPreview(expRes.crop_data, expRes.raw_text);
-      }
-
-      if (hotbarRes.success) {
-        latestDetection.hotbarFound = true;
-        latestDetection.quantities = hotbarRes.quantities;
-        updateHotbarGridUI(hotbarRes.cells);
-        checkAlerts();
-      }
-
-      updateAllStatsUI();
-      renderPipOverlay();
-    };
-    img.src = 'data:image/png;base64,' + SAMPLE_CAPTURE_B64;
-  });
-
   // Check Item Low-Quantity Alerts
   function checkAlerts() {
     if (!latestDetection.hotbarFound) {
@@ -866,6 +848,21 @@
       '1h': tracker.getWindowGain(3600)
     };
 
+    // Update Multi-Window Table Overview
+    for (const winKey of ['1m', '5m', '10m', '30m', '1h']) {
+      const win = latestDetection.windows[winKey];
+      if (!win) continue;
+      const expEl = document.getElementById(`statRowGainExp-${winKey}`);
+      const pctEl = document.getElementById(`statRowGainPct-${winKey}`);
+      const rateEl = document.getElementById(`statRowRateExp-${winKey}`);
+
+      if (expEl) expEl.textContent = `+${win.gained_exp.toLocaleString()}`;
+      if (pctEl) pctEl.textContent = `+${win.gained_pct.toFixed(2)}%`;
+      if (rateEl) rateEl.textContent = `${win.exp_rate_hr.toLocaleString()} / hr`;
+
+      drawMiniSparkline(winKey, win.slices, win.max_slice);
+    }
+
     updateWindowStatsUI();
 
     const session = tracker.getSessionStats();
@@ -896,84 +893,329 @@
     const win = latestDetection.windows[selectedWindow];
     if (!win) return;
 
-    statWindowGainExp.textContent = `+${win.gained_exp.toLocaleString()}`;
-    statWindowGainPct.textContent = `+${win.gained_pct.toFixed(2)}%`;
-    statWindowRateExp.textContent = `${win.exp_rate_hr.toLocaleString()} / hr`;
-    statWindowRatePct.textContent = `${win.pct_rate_hr.toFixed(2)}% / hr`;
-
-    drawSparkline(win.slices, win.max_slice);
+    if (detailedGraphTitle) {
+      detailedGraphTitle.textContent = `📈 Sliding EXP Rate (${selectedWindow} Window)`;
+    }
+    if (statGraphPeak) {
+      statGraphPeak.textContent = `Peak: +${win.max_slice.toLocaleString()} EXP`;
+    }
+    if (statGraphAvg) {
+      statGraphAvg.textContent = `Avg: ${(win.avg_slice || 0).toFixed(1)} EXP/s`;
+    }
+    if (statGraphRate) {
+      statGraphRate.textContent = `Rate: ${win.exp_rate_hr.toLocaleString()} / hr`;
+    }
   }
 
-  // Draw 128-slice Sparkline Graph
-  function drawSparkline(slices, maxVal) {
-    const w = sparklineCanvas.width = sparklineCanvas.clientWidth || 300;
-    const h = sparklineCanvas.height = 70;
+  // Draw 80x20 Mini Sparkline for Multi-Window Table Rows
+  function drawMiniSparkline(key, slices, maxVal) {
+    const cvs = document.getElementById(`miniSparkline-${key}`);
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    const w = cvs.width = 80;
+    const h = cvs.height = 20;
 
-    sparklineCtx.clearRect(0, 0, w, h);
+    ctx.clearRect(0, 0, w, h);
     if (!slices || slices.length === 0 || maxVal <= 0) {
-      sparklineCtx.fillStyle = '#222428';
-      sparklineCtx.fillRect(0, h - 2, w, 2);
+      ctx.fillStyle = '#22252a';
+      ctx.fillRect(0, h - 2, w, 1);
       return;
     }
 
     const n = slices.length;
     const stepX = w / (n - 1);
-    const padTop = 8;
-    const padBottom = 6;
-    const effH = h - padTop - padBottom;
+    const effH = h - 4;
 
-    // Gradient fill under the curve
-    const gradient = sparklineCtx.createLinearGradient(0, padTop, 0, h);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.45)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
-
-    sparklineCtx.beginPath();
-    sparklineCtx.moveTo(0, h - padBottom);
-
+    ctx.beginPath();
+    ctx.moveTo(0, h);
     for (let i = 0; i < n; i++) {
       const x = i * stepX;
-      const y = h - padBottom - (slices[i] / maxVal) * effH;
-      if (i === 0) sparklineCtx.lineTo(x, y);
-      else sparklineCtx.lineTo(x, y);
+      const y = h - 2 - (slices[i] / maxVal) * effH;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = key === selectedWindow ? 'rgba(56, 189, 248, 0.28)' : 'rgba(56, 189, 248, 0.12)';
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const y = h - 2 - (slices[i] / maxVal) * effH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = key === selectedWindow ? '#38bdf8' : '#60a5fa';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  // Sliding Chart Engine
+  let slidingMaxY = 50;
+  let animLoopRunning = false;
+  let hoverChartPos = null;
+
+  function getNiceMax(val) {
+    if (val <= 10) return 10;
+    if (val <= 50) return 50;
+    if (val <= 100) return 100;
+    const exp = Math.pow(10, Math.floor(Math.log10(val)));
+    const frac = val / exp;
+    if (frac <= 1) return exp;
+    if (frac <= 2) return 2 * exp;
+    if (frac <= 5) return 5 * exp;
+    return 10 * exp;
+  }
+
+  function formatTimeShort(sec) {
+    sec = Math.round(sec);
+    if (sec < 60) return `${sec}s`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+
+  function drawSlidingChart() {
+    const w = sparklineCanvas.width = sparklineCanvas.clientWidth || 360;
+    const h = sparklineCanvas.height = 90;
+
+    const padTop = 14;
+    const padBottom = 16;
+    const padLeft = 8;
+    const padRight = 8;
+    const effW = Math.max(10, w - padLeft - padRight);
+    const effH = Math.max(10, h - padTop - padBottom);
+
+    sparklineCtx.clearRect(0, 0, w, h);
+
+    const now = Date.now() / 1000;
+    const winSec = WINDOW_SEC[selectedWindow] || 300;
+    const tStart = now - winSec;
+
+    // Filter valid samples
+    const cleanSamples = tracker.history.filter(s => !s.is_outlier && s.timestamp >= tStart - 60 && s.timestamp <= now + 2);
+
+    // Build discrete fixed-second gains map
+    const secGains = {};
+    for (const s of cleanSamples) {
+      if (s.delta_exp > 0) {
+        const sec = Math.floor(s.timestamp);
+        secGains[sec] = (secGains[sec] || 0) + s.delta_exp;
+      }
     }
 
-    sparklineCtx.lineTo(w, h - padBottom);
+    // Adaptive smoothing window
+    let smoothSec = 3;
+    if (winSec >= 3600) smoothSec = 30;
+    else if (winSec >= 1800) smoothSec = 15;
+    else if (winSec >= 600) smoothSec = 8;
+    else if (winSec >= 300) smoothSec = 5;
+
+    // Cache smoothed rate for visible integer seconds
+    let peakVal = 0;
+    const startSec = Math.floor(tStart);
+    const endSec = Math.ceil(now);
+    const smoothedSec = {};
+
+    for (let s = startSec - smoothSec; s <= endSec + 1; s++) {
+      let sum = 0;
+      for (let k = 0; k < smoothSec; k++) {
+        sum += (secGains[s - k] || 0);
+      }
+      const val = sum / smoothSec;
+      smoothedSec[s] = val;
+      if (s >= startSec && val > peakVal) {
+        peakVal = val;
+      }
+    }
+
+    // Smooth lerp Y-axis scale
+    const targetMaxY = peakVal > 0 ? getNiceMax(peakVal * 1.25) : 50;
+    slidingMaxY += (targetMaxY - slidingMaxY) * 0.08;
+    if (slidingMaxY < 10) slidingMaxY = 10;
+
+    // Draw horizontal dashed grid lines (0, 50%, 100%)
+    sparklineCtx.lineWidth = 1;
+    sparklineCtx.setLineDash([3, 4]);
+
+    const gridLines = [
+      { ratio: 1.0, label: `+${Math.round(slidingMaxY).toLocaleString()}` },
+      { ratio: 0.5, label: `+${Math.round(slidingMaxY * 0.5).toLocaleString()}` },
+      { ratio: 0.0, label: '0' }
+    ];
+
+    for (const gl of gridLines) {
+      const y = padTop + effH * (1.0 - gl.ratio);
+      sparklineCtx.strokeStyle = '#22252a';
+      sparklineCtx.beginPath();
+      sparklineCtx.moveTo(padLeft, y);
+      sparklineCtx.lineTo(padLeft + effW, y);
+      sparklineCtx.stroke();
+
+      if (gl.ratio > 0 && peakVal > 0) {
+        sparklineCtx.fillStyle = '#6b7280';
+        sparklineCtx.font = '9px monospace';
+        sparklineCtx.textAlign = 'right';
+        sparklineCtx.fillText(gl.label, padLeft + effW - 4, y - 2);
+      }
+    }
+
+    // Draw vertical time marker guides (-winKey, -half, Now)
+    const timeMarks = [
+      { ratio: 0.0, label: `-${selectedWindow}` },
+      { ratio: 0.5, label: `-${formatTimeShort(winSec / 2)}` },
+      { ratio: 1.0, label: 'Now' }
+    ];
+
+    for (const tm of timeMarks) {
+      const x = padLeft + tm.ratio * effW;
+      sparklineCtx.strokeStyle = '#22252a';
+      sparklineCtx.beginPath();
+      sparklineCtx.moveTo(x, padTop);
+      sparklineCtx.lineTo(x, padTop + effH);
+      sparklineCtx.stroke();
+
+      sparklineCtx.fillStyle = '#6b7280';
+      sparklineCtx.font = '9px monospace';
+      sparklineCtx.textAlign = tm.ratio === 0 ? 'left' : (tm.ratio === 1 ? 'right' : 'center');
+      sparklineCtx.fillText(tm.label, x, h - 3);
+    }
+    sparklineCtx.setLineDash([]);
+
+    // If no EXP has been gained yet
+    if (cleanSamples.length < 2 || peakVal <= 0) {
+      sparklineCtx.fillStyle = '#4b5563';
+      sparklineCtx.font = 'italic 11px sans-serif';
+      sparklineCtx.textAlign = 'center';
+      sparklineCtx.fillText('Live sliding battle analysis (awaiting EXP gains...)', w / 2, padTop + effH / 2 + 4);
+
+      sparklineCtx.strokeStyle = '#2d3748';
+      sparklineCtx.beginPath();
+      sparklineCtx.moveTo(padLeft, padTop + effH);
+      sparklineCtx.lineTo(padLeft + effW, padTop + effH);
+      sparklineCtx.stroke();
+      return;
+    }
+
+    // Build the curve points across screen width
+    const numSteps = Math.min(240, Math.max(80, Math.floor(effW / 2)));
+    const points = [];
+
+    for (let i = 0; i <= numSteps; i++) {
+      const ratio = i / numSteps;
+      const x = padLeft + ratio * effW;
+      const t = tStart + ratio * winSec;
+
+      const s0 = Math.floor(t);
+      const frac = t - s0;
+      const v0 = smoothedSec[s0] || 0;
+      const v1 = smoothedSec[s0 + 1] || 0;
+      const val = v0 + (v1 - v0) * frac;
+
+      const y = padTop + effH * (1.0 - Math.min(1.0, Math.max(0.0, val / slidingMaxY)));
+      points.push({ x, y, val, t });
+    }
+
+    // Shaded gradient area under the sliding line
+    const gradient = sparklineCtx.createLinearGradient(0, padTop, 0, padTop + effH);
+    gradient.addColorStop(0, 'rgba(56, 189, 248, 0.35)');
+    gradient.addColorStop(0.8, 'rgba(56, 189, 248, 0.05)');
+    gradient.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
+
+    sparklineCtx.beginPath();
+    sparklineCtx.moveTo(points[0].x, padTop + effH);
+    for (let i = 0; i < points.length; i++) {
+      sparklineCtx.lineTo(points[i].x, points[i].y);
+    }
+    sparklineCtx.lineTo(points[points.length - 1].x, padTop + effH);
     sparklineCtx.closePath();
     sparklineCtx.fillStyle = gradient;
     sparklineCtx.fill();
 
     // Line curve with glow
     sparklineCtx.beginPath();
-    for (let i = 0; i < n; i++) {
-      const x = i * stepX;
-      const y = h - padBottom - (slices[i] / maxVal) * effH;
-      if (i === 0) sparklineCtx.moveTo(x, y);
-      else sparklineCtx.lineTo(x, y);
+    for (let i = 0; i < points.length; i++) {
+      if (i === 0) sparklineCtx.moveTo(points[i].x, points[i].y);
+      else sparklineCtx.lineTo(points[i].x, points[i].y);
     }
     sparklineCtx.strokeStyle = '#38bdf8';
     sparklineCtx.lineWidth = 2;
     sparklineCtx.shadowColor = '#38bdf8';
-    sparklineCtx.shadowBlur = 4;
+    sparklineCtx.shadowBlur = 5;
     sparklineCtx.stroke();
     sparklineCtx.shadowBlur = 0;
+
+    // Leading edge pulse dot at current time "Now" (x = padLeft + effW)
+    const lastPt = points[points.length - 1];
+    sparklineCtx.beginPath();
+    sparklineCtx.arc(lastPt.x, lastPt.y, 3.5, 0, Math.PI * 2);
+    sparklineCtx.fillStyle = '#38bdf8';
+    sparklineCtx.fill();
+    sparklineCtx.strokeStyle = '#ffffff';
+    sparklineCtx.lineWidth = 1.5;
+    sparklineCtx.stroke();
+
+    // Hover crosshair & interactive tooltip
+    if (hoverChartPos && hoverChartPos.x >= padLeft && hoverChartPos.x <= padLeft + effW) {
+      const hx = hoverChartPos.x;
+      const ratio = (hx - padLeft) / effW;
+      const tHover = tStart + ratio * winSec;
+      const s0 = Math.floor(tHover);
+      const frac = tHover - s0;
+      const v0 = smoothedSec[s0] || 0;
+      const v1 = smoothedSec[s0 + 1] || 0;
+      const hVal = v0 + (v1 - v0) * frac;
+      const hy = padTop + effH * (1.0 - Math.min(1.0, Math.max(0.0, hVal / slidingMaxY)));
+
+      // Vertical line
+      sparklineCtx.strokeStyle = '#f1c40f';
+      sparklineCtx.lineWidth = 1;
+      sparklineCtx.setLineDash([2, 3]);
+      sparklineCtx.beginPath();
+      sparklineCtx.moveTo(hx, padTop);
+      sparklineCtx.lineTo(hx, padTop + effH);
+      sparklineCtx.stroke();
+      sparklineCtx.setLineDash([]);
+
+      // Circle marker
+      sparklineCtx.beginPath();
+      sparklineCtx.arc(hx, hy, 4, 0, Math.PI * 2);
+      sparklineCtx.fillStyle = '#f1c40f';
+      sparklineCtx.fill();
+      sparklineCtx.strokeStyle = '#ffffff';
+      sparklineCtx.lineWidth = 1.5;
+      sparklineCtx.stroke();
+
+      const secAgo = Math.max(0, Math.round(now - tHover));
+      const hrRate = Math.round(hVal * 3600);
+      sparklineTooltip.style.display = 'block';
+      sparklineTooltip.innerHTML = `-${formatTimeShort(secAgo)}: <strong>+${Math.round(hVal).toLocaleString()} EXP/s</strong> (${hrRate.toLocaleString()}/hr)`;
+    }
   }
 
-  // Sparkline Tooltip
+  function startSlidingChartLoop() {
+    if (animLoopRunning) return;
+    animLoopRunning = true;
+    function anim() {
+      if (activeTab === 'exp') {
+        drawSlidingChart();
+      }
+      requestAnimationFrame(anim);
+    }
+    requestAnimationFrame(anim);
+  }
+
+  // Sparkline Interactive Tooltip & Crosshair
   sparklineCanvas.addEventListener('mousemove', (e) => {
     const rect = sparklineCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const w = rect.width;
-    const win = latestDetection.windows[selectedWindow];
-    if (!win || !win.slices || win.slices.length === 0) return;
-
-    const sliceIdx = Math.max(0, Math.min(win.slices.length - 1, Math.floor((x / w) * win.slices.length)));
-    const val = win.slices[sliceIdx];
-
-    sparklineTooltip.style.display = 'block';
-    sparklineTooltip.textContent = `Slice: +${val.toLocaleString()} EXP`;
+    hoverChartPos = {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    };
   });
 
   sparklineCanvas.addEventListener('mouseleave', () => {
+    hoverChartPos = null;
     sparklineTooltip.style.display = 'none';
   });
 
@@ -1173,9 +1415,8 @@
   // Initialize
   initHotbarDOM();
   btnMute.innerHTML = isMuted ? '🔇 Unmute' : '🔊 Sound On';
-  document.querySelectorAll('.pill-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.window === selectedWindow);
-  });
+  selectWindow(selectedWindow);
   updateAllStatsUI();
+  startSlidingChartLoop();
   processFrame();
 })();

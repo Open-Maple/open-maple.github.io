@@ -38,12 +38,12 @@ Built 100% client-side with modern Web APIs: Screen Capture API, HTML5 Canvas, W
 - **🔴 Built-in Window Recording & Export**:
   - Record grinding sessions with **`MediaRecorder`**.
   - One-click **"Start Recording"** with live timer badge and instant `.webm` video download.
-- **📈 Rolling Time Windows & Battle Analysis**:
-  - Rolling windows: **1m, 5m, 10m, 30m, 1h**.
-  - Interactive 128-slice sparkline graph with hover tooltips.
+- **📈 Multi-Window Live Overview & Smooth Sliding Battle Analysis**:
+  - Live simultaneous monitoring of all 5 rolling windows: **1m, 5m, 10m, 30m, 1h** with individual trendlines, gained EXP, %, and hourly rates.
+  - Real-time continuous sliding battle analysis chart with auto-scaling and hover tooltips.
   - Level-up ETA projections and anomaly sanitization against black screens/transitions.
-- **⚡ 1-Click Instant Demo**:
-  - Test the web app instantly without launching the game using the **"⚡ 1-Click Demo Screen"** button or by dragging and dropping any screenshot or recording.
+- **📁 Instant Drag & Drop Testing**:
+  - Test the web app instantly without launching the game by dragging and dropping any MapleStory screenshot or video recording directly into the browser.
 - **💾 Session Log Export**:
   - Download full CSV logs of your battle analysis session with timestamps and EXP deltas.
 
