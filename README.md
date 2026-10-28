@@ -5,15 +5,17 @@
 
 > # 🛑 "Open source like they SHOULD be. Completely offline."
 >
-> Sick of fake "open-source" trackers that spy on your machine, demand your Discord login, force you into accounts, or secretly depend on proprietary cloud servers just to read numbers off your screen?
+> Half the new gaming tools dropping today are clearly **vibecoded in an afternoon with AI**—so why the hell are they **closed-source for no reason**?
 >
-> **MapleEXP Tracker runs 100% locally in your browser. Completely offline. Zero BS. Zero excuses.**
+> Why is anyone shipping closed-source, black-box `.exe` files, gatekeeping AI-generated code behind Discord logins, forcing online accounts, or running sketchy background telemetry just to read numbers off your game screen? Vibecoded software should be free, open source, and transparent—not a sketchy closed-source grift.
 >
-> - ❌ **No Cloud Backends** — No servers to die, lag, or paywall down the road. There is literally no server.
-> - ❌ **No Logins, No Accounts, No Discord Tokens** — We don't want your email, your credentials, or your data. Ever.
-> - ❌ **Zero Telemetry or Analytics** — No pings, no trackers, no surveillance. Your grind stays strictly in your own RAM.
-> - ❌ **No 500MB Electron Bloatware** — No suspicious background daemons, no memory-hogging runtimes, no driver hooks.
-> - 🔌 **Rip your ethernet cable out mid-grind — it won't drop a single frame.**
+> **MapleEXP Tracker is open source like they SHOULD be:**
+>
+> - 🔓 **100% Open Source** — Every single line of code is right here to inspect, audit, and fork. No gatekeeping, no closed-source secrecy.
+> - 🔌 **Completely Offline** — All OCR, computer vision, and battle analysis math run directly on your CPU in-browser. Rip your ethernet cable out mid-grind and it won't drop a single frame.
+> - 🛡️ **Zero Sketchy Binaries** — No mystery `.exe` files, no installers asking for admin permissions, and no hidden background daemons.
+> - ❌ **No Logins, No Discord Gates** — We don't want your email, your Discord token, or your data. Just open the page and use it.
+> - ❌ **Zero Telemetry** — Zero tracking, zero pings, zero surveillance. Your grind stays strictly in your own RAM.
 >
 > ---
 > 🌐 **Live Web App**: **[open-maple.github.io](https://open-maple.github.io/)**  
