@@ -372,15 +372,90 @@
   });
 
   // Tab Navigation
+  function switchTab(tabId) {
+    document.querySelectorAll('.tab-btn').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === tabId);
+    });
+    document.querySelectorAll('.tab-content').forEach(c => {
+      c.classList.remove('active');
+    });
+    const target = document.getElementById(`tabContent-${tabId}`);
+    if (target) {
+      target.classList.add('active');
+      activeTab = tabId;
+    }
+  }
+
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-      btn.classList.add('active');
-      activeTab = btn.dataset.tab;
-      document.getElementById(`tabContent-${activeTab}`).classList.add('active');
+      switchTab(btn.dataset.tab);
     });
   });
+
+  // Offline Header Banner & Info Page Controls
+  const offlineHeaderBanner = document.getElementById('offlineHeaderBanner');
+  const btnDismissBanner = document.getElementById('btnDismissBanner');
+  const btnBannerLearnMore = document.getElementById('btnBannerLearnMore');
+  const btnHeaderInfo = document.getElementById('btnHeaderInfo');
+  const btnBackToTracker = document.getElementById('btnBackToTracker');
+  const btnRestoreBanner = document.getElementById('btnRestoreBanner');
+
+  const STORAGE_KEY_BANNER_DISMISSED = 'maple_exp_offline_banner_dismissed';
+
+  if (localStorage.getItem(STORAGE_KEY_BANNER_DISMISSED) === 'true') {
+    offlineHeaderBanner?.classList.add('dismissed');
+  }
+
+  btnDismissBanner?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    offlineHeaderBanner?.classList.add('dismissed');
+    try {
+      localStorage.setItem(STORAGE_KEY_BANNER_DISMISSED, 'true');
+    } catch (_) {}
+  });
+
+  btnBannerLearnMore?.addEventListener('click', () => {
+    switchTab('info');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  btnHeaderInfo?.addEventListener('click', () => {
+    switchTab('info');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  btnBackToTracker?.addEventListener('click', () => {
+    switchTab('exp');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  btnRestoreBanner?.addEventListener('click', () => {
+    offlineHeaderBanner?.classList.remove('dismissed');
+    try {
+      localStorage.removeItem(STORAGE_KEY_BANNER_DISMISSED);
+    } catch (_) {}
+    btnRestoreBanner.textContent = '✅ Banner Restored!';
+    setTimeout(() => {
+      btnRestoreBanner.textContent = '🔁 Show Header Banner Again';
+    }, 2000);
+  });
+
+  // Online / Offline Status Checker
+  function updateOfflineStatusUI() {
+    const offlineStatusDot = document.getElementById('offlineStatusDot');
+    const offlineStatusText = document.getElementById('offlineStatusText');
+    if (!offlineStatusDot || !offlineStatusText) return;
+    if (navigator.onLine) {
+      offlineStatusDot.className = 'status-dot locked';
+      offlineStatusText.textContent = 'ONLINE (Ready for offline)';
+    } else {
+      offlineStatusDot.className = 'status-dot searching';
+      offlineStatusText.textContent = 'OFFLINE (Running client-side)';
+    }
+  }
+  window.addEventListener('online', updateOfflineStatusUI);
+  window.addEventListener('offline', updateOfflineStatusUI);
+  updateOfflineStatusUI();
 
   // Window Pills (1m, 5m, 10m, 30m, 1h)
   document.querySelectorAll('.pill-btn').forEach(btn => {

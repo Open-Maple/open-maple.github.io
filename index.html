@@ -19,11 +19,31 @@
         <h1 class="app-title">MapleEXP Tracker</h1>
       </div>
       <div class="header-badges">
+        <button id="btnHeaderInfo" class="header-btn" title="View Offline & Open Source Manifesto">
+          ℹ️ Info
+        </button>
         <button id="btnPip" class="pip-btn" title="Pop out a compact floating overlay window that stays always on top over MapleStory">
           📌 Float (PiP)
         </button>
       </div>
     </header>
+
+    <!-- Header Dismissible Offline Banner -->
+    <div id="offlineHeaderBanner" class="offline-banner">
+      <div class="offline-banner-body">
+        <div class="offline-banner-title-row">
+          <span class="offline-banner-badge">🛑 100% OFFLINE</span>
+          <span class="offline-banner-quote">"Open source like they could be. Completely offline."</span>
+        </div>
+        <p class="offline-banner-sub">
+          No mandatory accounts. Zero telemetry. No cloud backends. Pure in-browser client execution.
+        </p>
+      </div>
+      <div class="offline-banner-actions">
+        <button id="btnBannerLearnMore" class="banner-action-btn" title="Read the manifesto on the Info page">Why Offline? →</button>
+        <button id="btnDismissBanner" class="banner-close-btn" title="Dismiss message" aria-label="Dismiss banner">×</button>
+      </div>
+    </div>
 
     <!-- Top Alert Banner (Low Item Quantity Warning) -->
     <div id="alertBanner" class="alert-banner">
@@ -70,7 +90,8 @@
     <!-- Tabs Navigation -->
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="exp">📈 EXP Tracker</button>
-      <button class="tab-btn" data-tab="hotbar">🎒 Hotbar Settings</button>
+      <button class="tab-btn" data-tab="hotbar">🎒 Hotbar</button>
+      <button class="tab-btn" data-tab="info">ℹ️ About & Offline</button>
     </nav>
 
     <!-- TAB 1: EXP Tracker -->
@@ -209,6 +230,103 @@
               <button class="preset-btn" data-val="100">100</button>
             </div>
           </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB 3: About & Offline Manifesto -->
+    <main id="tabContent-info" class="tab-content">
+      <!-- Big Statement Card -->
+      <section class="card info-manifesto-card">
+        <div class="manifesto-header">
+          <span class="manifesto-tag">🛡️ REAL OPEN SOURCE • 100% OFFLINE</span>
+          <h2 class="manifesto-title">"Open source like they could be. Completely offline."</h2>
+          <p class="manifesto-subtitle">
+            Taking shots at companion apps and trackers that secretly phone home, force accounts down your throat, or hide behind proprietary cloud servers.
+          </p>
+        </div>
+
+        <div class="comparison-grid">
+          <!-- MapleEXP Column -->
+          <div class="compare-box compare-ours">
+            <div class="compare-box-title">🍁 MapleEXP Tracker</div>
+            <ul class="compare-list">
+              <li><span class="compare-icon check">✓</span> <div><strong>100% Client-Side:</strong> All Screen Capture, CV matching, and EXP math run strictly in Chromium on your CPU.</div></li>
+              <li><span class="compare-icon check">✓</span> <div><strong>Completely Offline:</strong> Pull your internet cable mid-grind and it keeps running without missing a frame.</div></li>
+              <li><span class="compare-icon check">✓</span> <div><strong>Zero Logins / No Discord OAuth:</strong> No accounts, no passwords, no email collection, no tracking.</div></li>
+              <li><span class="compare-icon check">✓</span> <div><strong>Zero Telemetry:</strong> No analytics pings, no server logs, no tracking of your game window or play times.</div></li>
+              <li><span class="compare-icon check">✓</span> <div><strong>Zero Bloatware:</strong> No 500MB Electron binaries, no kernel drivers, no background daemons.</div></li>
+            </ul>
+          </div>
+
+          <!-- The Others Column -->
+          <div class="compare-box compare-theirs">
+            <div class="compare-box-title">❌ Other "Free / Open" Apps</div>
+            <ul class="compare-list">
+              <li><span class="compare-icon cross">✕</span> <div><strong>Mandatory Logins:</strong> Demand a Discord login or account creation before you can even launch.</div></li>
+              <li><span class="compare-icon cross">✕</span> <div><strong>Cloud Dependencies:</strong> Crash or break whenever their remote servers go down or lag.</div></li>
+              <li><span class="compare-icon cross">✕</span> <div><strong>Telemetry & Spyware:</strong> Phone home with game stats, hardware profiles, and active window titles.</div></li>
+              <li><span class="compare-icon cross">✕</span> <div><strong>500MB Electron Bloat:</strong> Sluggish desktop apps that hog RAM and run background daemons.</div></li>
+              <li><span class="compare-icon cross">✕</span> <div><strong>Future Paywalls:</strong> Bait you with free features only to lock the good stuff behind subscriptions.</div></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Offline Verification & System Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>⚡ Live Offline Status</span>
+        </div>
+        <div class="offline-status-box">
+          <div class="status-indicator">
+            <span id="offlineStatusDot" class="status-dot locked"></span>
+            <span id="offlineStatusTitle" class="status-text">Network State: <span id="offlineStatusText">ONLINE</span></span>
+          </div>
+          <p class="offline-status-desc">
+            Even while connected, <strong>zero requests</strong> are sent to any external server during tracking. You can turn on Airplane Mode or unplug your Ethernet right now to verify.
+          </p>
+        </div>
+        <div class="info-actions-row">
+          <button id="btnRestoreBanner" class="btn btn-secondary">
+            🔁 Show Header Banner Again
+          </button>
+          <button id="btnBackToTracker" class="btn btn-primary">
+            ← Back to EXP Tracker
+          </button>
+        </div>
+      </section>
+
+      <!-- Tech Stack & Open Source Card -->
+      <section class="card">
+        <div class="card-title">
+          <span>🛠️ Transparent Tech Stack</span>
+        </div>
+        <div class="tech-stack-list">
+          <div class="tech-item">
+            <span class="tech-item-name">Screen Capture API</span>
+            <span class="tech-item-desc">Native browser window capture via <code>navigator.mediaDevices.getDisplayMedia</code>.</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-item-name">HTML5 Canvas OCR</span>
+            <span class="tech-item-desc">In-memory pixel buffer pattern matching with sub-pixel multi-scale templates.</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-item-name">Document Picture-in-Picture</span>
+            <span class="tech-item-desc">Native floating always-on-top overlay window.</span>
+          </div>
+          <div class="tech-item">
+            <span class="tech-item-name">Web Audio API</span>
+            <span class="tech-item-desc">Synthesized two-tone low-item warnings generated entirely in-code.</span>
+          </div>
+        </div>
+        <div class="manifesto-footer-links">
+          <a href="https://github.com/open-maple/open-maple.github.io" target="_blank" rel="noopener noreferrer" class="link-badge">
+            ⭐ GitHub Repository
+          </a>
+          <a href="LICENSE" target="_blank" class="link-badge">
+            📄 MIT License (Free Forever)
+          </a>
         </div>
       </section>
     </main>

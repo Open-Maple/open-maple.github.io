@@ -3,6 +3,19 @@
 [![GitHub Pages](https://img.shields.io/badge/GitHub%20Pages-Live%20Web%20App-brightgreen?style=for-the-badge&logo=github)](https://open-maple.github.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
+> # 🛑 "Open source like they could be. Completely offline."
+>
+> Tired of "open-source" trackers that demand a Discord login, phone home with telemetry, hide features behind paid tiers, or secretly rely on proprietary cloud backends just to read numbers off your screen?
+>
+> **MapleEXP Tracker runs 100% client-side in your browser. Completely offline. Zero BS.**
+>
+> - ❌ **No Cloud Backends** — Nothing to shut down, lag out, or get paywalled. There is no server.
+> - ❌ **No Logins or Accounts** — We don't want your email, your Discord tag, or your credentials.
+> - ❌ **Zero Telemetry or Analytics** — Your gameplay, screen captures, and grind sessions stay in your browser RAM and never leave your machine.
+> - ❌ **No 500MB Bloatware** — No suspicious `.exe` installers, no background daemons, no driver hooks.
+> - 🔌 **Unplug your internet cable mid-grind — it won't drop a single frame.**
+>
+> ---
 > 🌐 **Live Web App**: **[open-maple.github.io](https://open-maple.github.io/)**  
 > Run directly in Chrome, Edge, Brave, or Opera with zero installation required!
 
