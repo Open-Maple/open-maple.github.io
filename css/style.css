@@ -1236,3 +1236,78 @@ body.red-alert-active .card {
   border-color: #5865f2;
   color: #fff;
 }
+
+
+/* 💰 Meso Tracker Styling */
+.meso-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 0 2px 0;
+}
+
+.meso-hero-val-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.meso-hero-num {
+  font-size: 2.1rem;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: #ffd700;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.25);
+}
+
+.meso-hero-unit {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.05em;
+}
+
+.meso-sub-stats {
+  display: flex;
+  gap: 18px;
+  font-size: 0.88rem;
+}
+
+.meso-sub-item {
+  color: var(--text-muted);
+}
+
+.meso-gain-text {
+  color: #22c55e;
+  font-family: var(--font-mono);
+}
+
+.meso-rate-text {
+  color: #ffd700;
+  font-family: var(--font-mono);
+}
+
+.meso-badge {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: #ffd700 !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+.windows-table tbody tr.meso-window-row:hover {
+  background-color: rgba(245, 158, 11, 0.09) !important;
+}
+
+.windows-table tbody tr.meso-window-row.active {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border-left: 3px solid #f59e0b;
+}
+
+.meso-pill-btn.active {
+  background-color: #d97706 !important;
+  color: #ffffff !important;
+}
+
+.hero-quick-sub {
+  border-top: 1px solid #222428;
+  padding-top: 8px;
+}

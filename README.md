@@ -38,6 +38,12 @@ Built 100% client-side with modern Web APIs: Screen Capture API, HTML5 Canvas, W
 - **🔴 Built-in Window Recording & Export**:
   - Record grinding sessions with **`MediaRecorder`**.
   - One-click **"Start Recording"** with live timer badge and instant `.webm` video download.
+- **💰 Real-Time Meso Tracker & Omni-Positional Search**:
+  - Automatically locates your Item Inventory window anywhere on screen (multi-sector search prioritizing Top-Right, Bottom-Right, Top-Left, Bottom-Left, and Full-Screen sweep).
+  - Handles closed inventory gracefully: if closed with 'I', existing session stats, duration, and rolling averages are preserved without false dropouts while the 1 Hz CV loop keeps auto-scanning until reopened.
+  - Adaptive per-column contrast binarization ensures 100% optical character recognition whether your inventory is 100% solid or transparent (alpha-blended over dark tiles/mobs).
+  - Tracks live mesos, rolling hourly rates across all 5 time windows (**1m, 5m, 10m, 30m, 1h**), and net session income.
+  - Interactive amber/gold sliding battle analysis graph, live inventory crop drawer, Picture-in-Picture floating overlay integration, and dual EXP/Meso CSV export.
 - **📈 Multi-Window Live Overview & Smooth Sliding Battle Analysis**:
   - Live simultaneous monitoring of all 5 rolling windows: **1m, 5m, 10m, 30m, 1h** with individual trendlines, gained EXP, %, and hourly rates.
   - Real-time continuous sliding battle analysis chart with auto-scaling and hover tooltips.
@@ -71,4 +77,6 @@ Run the pure JavaScript unit test suite:
 
 ```bash
 node test_js/test_tracker.js
+node test_js/test_meso.js
+node test_js/test_detector_scaling.js
 ```

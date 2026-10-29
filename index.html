@@ -85,6 +85,7 @@
     <!-- Tabs Navigation -->
     <nav class="tabs-nav">
       <button class="tab-btn active" data-tab="exp">📈 EXP Tracker</button>
+      <button class="tab-btn" data-tab="meso">💰 Mesos</button>
       <button class="tab-btn" data-tab="hotbar">🎒 Hotbar</button>
       <button class="tab-btn" data-tab="info">ℹ️ About & Offline</button>
     </nav>
@@ -103,6 +104,10 @@
         </div>
         <div class="exp-bar-wrapper">
           <div id="expBarFill" class="exp-bar-fill"></div>
+        </div>
+        <div class="hero-quick-sub" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.78rem;">
+          <span style="color: var(--text-muted);">💰 Inventory Mesos: <strong id="quickMesoVal" style="color: #ffd700; font-family: var(--font-mono);">0</strong></span>
+          <span id="quickMesoRate" style="color: #38bdf8; font-family: var(--font-mono);">0 / hr</span>
         </div>
       </section>
 
@@ -240,6 +245,159 @@
           <div id="previewContent" class="preview-content">
             <canvas id="expCropCanvas" class="preview-canvas"></canvas>
             <span id="expOcrDebug" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">Raw OCR: None</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- TAB: Meso Tracker -->
+    <main id="tabContent-meso" class="tab-content">
+      <!-- Current Meso Hero Card -->
+      <section class="card meso-card">
+        <div class="card-title">
+          <span>Current Mesos</span>
+          <span id="mesoStatusMini" style="color: var(--accent-gold); font-size: 0.75rem;">Top-Right Inventory Sync</span>
+        </div>
+        <div class="meso-hero">
+          <div class="meso-hero-val-row">
+            <span id="mesoHeroNum" class="meso-hero-num">0</span>
+            <span class="meso-hero-unit">MESOS</span>
+          </div>
+          <div class="meso-sub-stats">
+            <span class="meso-sub-item">Session Net: <strong id="mesoHeroGain" class="meso-gain-text">+0</strong></span>
+            <span class="meso-sub-item">Rate: <strong id="mesoHeroRate" class="meso-rate-text">0 / hr</strong></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Rolling Time Windows Card (Multi-Window Live View + Sliding Chart) -->
+      <section class="card meso-card">
+        <div class="card-title">
+          <span>Rolling Time Windows</span>
+          <span style="font-size: 0.72rem; color: #ffd700; font-weight: 600;">All 5 Windows Live</span>
+        </div>
+
+        <!-- Multi-Window Overview Table -->
+        <div class="windows-table-container">
+          <table class="windows-table">
+            <thead>
+              <tr>
+                <th style="width: 52px; text-align: left;">Window</th>
+                <th style="text-align: center;">Trend</th>
+                <th style="text-align: right;">Gained Mesos</th>
+                <th style="text-align: right;">Rate / Hr</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="window-row meso-window-row" data-window="1m" title="Click to view 1m sliding graph">
+                <td><span class="window-badge meso-badge">1m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="mesoMiniSparkline-1m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainMeso-1m">+0</td>
+                <td class="stat-cell stat-rate" id="statRowRateMeso-1m" style="color: #ffd700;">0 / hr</td>
+              </tr>
+              <tr class="window-row meso-window-row active" data-window="5m" title="Click to view 5m sliding graph">
+                <td><span class="window-badge meso-badge">5m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="mesoMiniSparkline-5m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainMeso-5m">+0</td>
+                <td class="stat-cell stat-rate" id="statRowRateMeso-5m" style="color: #ffd700;">0 / hr</td>
+              </tr>
+              <tr class="window-row meso-window-row" data-window="10m" title="Click to view 10m sliding graph">
+                <td><span class="window-badge meso-badge">10m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="mesoMiniSparkline-10m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainMeso-10m">+0</td>
+                <td class="stat-cell stat-rate" id="statRowRateMeso-10m" style="color: #ffd700;">0 / hr</td>
+              </tr>
+              <tr class="window-row meso-window-row" data-window="30m" title="Click to view 30m sliding graph">
+                <td><span class="window-badge meso-badge">30m</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="mesoMiniSparkline-30m" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainMeso-30m">+0</td>
+                <td class="stat-cell stat-rate" id="statRowRateMeso-30m" style="color: #ffd700;">0 / hr</td>
+              </tr>
+              <tr class="window-row meso-window-row" data-window="1h" title="Click to view 1h sliding graph">
+                <td><span class="window-badge meso-badge">1h</span></td>
+                <td class="spark-cell"><canvas class="mini-sparkline" id="mesoMiniSparkline-1h" width="80" height="20"></canvas></td>
+                <td class="stat-cell" id="statRowGainMeso-1h">+0</td>
+                <td class="stat-cell stat-rate" id="statRowRateMeso-1h" style="color: #ffd700;">0 / hr</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Detailed Sliding Graph Section -->
+        <div class="detailed-graph-section">
+          <div class="detailed-graph-title-row">
+            <span id="detailedMesoGraphTitle" class="detailed-graph-title">💰 Sliding Meso Rate (5m Window)</span>
+            <!-- Time Window Selector Pills -->
+            <div class="window-pills">
+              <button class="pill-btn meso-pill-btn" data-window="1m">1m</button>
+              <button class="pill-btn meso-pill-btn active" data-window="5m">5m</button>
+              <button class="pill-btn meso-pill-btn" data-window="10m">10m</button>
+              <button class="pill-btn meso-pill-btn" data-window="30m">30m</button>
+              <button class="pill-btn meso-pill-btn" data-window="1h">1h</button>
+            </div>
+          </div>
+
+          <!-- Active Window Metric Strip -->
+          <div class="graph-metrics-strip">
+            <span id="statMesoGraphPeak" class="graph-metric-item peak" style="color: #ffd700;">Peak: +0 MESOS</span>
+            <span id="statMesoGraphAvg" class="graph-metric-item avg">Avg: 0.0 Meso/s</span>
+            <span id="statMesoGraphRate" class="graph-metric-item rate" style="color: #22c55e;">Rate: 0 / hr</span>
+          </div>
+
+          <!-- Live Sliding Battle Analysis Canvas -->
+          <div class="sparkline-container">
+            <canvas id="mesoSparklineCanvas"></canvas>
+            <div id="mesoSparklineTooltip" class="sparkline-tooltip"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Comprehensive Session Analytics Card -->
+      <section class="card meso-card">
+        <div class="card-title">
+          <span>Session Meso Analytics</span>
+        </div>
+        <div class="session-grid">
+          <div class="session-stat">
+            <span class="session-stat-label">Session Duration</span>
+            <span id="statSessionMesoDuration" class="session-stat-val">00:00:00</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Initial Mesos</span>
+            <span id="statSessionInitialMeso" class="session-stat-val">0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Total Gained Mesos</span>
+            <span id="statSessionGainedMeso" class="session-stat-val" style="color: #22c55e;">+0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Total Spent Mesos</span>
+            <span id="statSessionSpentMeso" class="session-stat-val" style="color: #ef4444;">-0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Net Meso Change</span>
+            <span id="statSessionNetMeso" class="session-stat-val" style="color: #ffd700;">+0</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Session Meso / hr</span>
+            <span id="statSessionRateMeso" class="session-stat-val" style="color: #ffd700;">0 / hr</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Window Alpha State</span>
+            <span id="statSessionMesoOpacity" class="session-stat-val" style="color: #a78bfa;">Adaptive (0-100%)</span>
+          </div>
+          <div class="session-stat">
+            <span class="session-stat-label">Anomalies Filtered</span>
+            <span id="statSessionMesoAnomalies" class="session-stat-val">0</span>
+          </div>
+        </div>
+
+        <!-- Meso Crop Preview Drawer -->
+        <div class="preview-drawer">
+          <button id="mesoPreviewToggle" class="preview-toggle">▶ Show Live Meso Bar Crop</button>
+          <div id="mesoPreviewContent" class="preview-content">
+            <canvas id="mesoCropCanvas" class="preview-canvas"></canvas>
+            <span id="mesoOcrDebug" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted);">Raw OCR: None</span>
           </div>
         </div>
       </section>
@@ -402,8 +560,10 @@
   <script src="js/sample-data.js"></script>
   <script src="js/cv-engine.js"></script>
   <script src="js/detector.js"></script>
+  <script src="js/meso-detector.js"></script>
   <script src="js/hotbar.js"></script>
   <script src="js/tracker.js"></script>
+  <script src="js/meso-tracker.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
