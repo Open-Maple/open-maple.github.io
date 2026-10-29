@@ -11,6 +11,7 @@
   // Core engines
   const cvEngine = new CVEngine();
   const tracker = new ExpTracker();
+  const mesoTracker = new MesoTracker();
 
   // Helper to convert RAW_TEMPLATES to ImageData
   function createTmplImageData(raw) {
@@ -31,7 +32,9 @@
   const ctrlBtnTmpl = createTmplImageData(RAW_TEMPLATES.ctrl_btn);
 
   const expDetector = new ExpDetector(cvEngine, expLogoTmpl);
+  const mesoAnchorTmpl = createTmplImageData(RAW_TEMPLATES.meso_anchor);
   const hotbarDetector = new HotbarDetector(cvEngine, frameBottomTmpl, ctrlBtnTmpl);
+  const mesoDetector = new MesoDetector(cvEngine, mesoAnchorTmpl);
 
   // App State
   let captureStream = null;
@@ -45,6 +48,7 @@
   let isMuted = false;
   let activeTab = 'exp'; // 'exp' | 'hotbar'
   let selectedWindow = '5m'; // '1m' | '5m' | '10m' | '30m' | '1h'
+  let selectedMesoWindow = '5m';
   let selectedCell = [2, 3]; // [row, col] default: Pdn (orange potions)
   let cellAlerts = {};
 
@@ -53,6 +57,7 @@
     CELL_ALERTS: 'maple_exp_cell_alerts',
     SELECTED_CELL: 'maple_exp_selected_cell',
     SELECTED_WINDOW: 'maple_exp_selected_window',
+    SELECTED_MESO_WINDOW: 'maple_exp_selected_meso_window',
     IS_MUTED: 'maple_exp_is_muted'
   };
 
@@ -61,6 +66,7 @@
       localStorage.setItem(STORAGE_KEYS.CELL_ALERTS, JSON.stringify(cellAlerts));
       localStorage.setItem(STORAGE_KEYS.SELECTED_CELL, JSON.stringify(selectedCell));
       localStorage.setItem(STORAGE_KEYS.SELECTED_WINDOW, selectedWindow);
+      localStorage.setItem(STORAGE_KEYS.SELECTED_MESO_WINDOW, selectedMesoWindow);
       localStorage.setItem(STORAGE_KEYS.IS_MUTED, JSON.stringify(isMuted));
     } catch (e) {
       console.warn('Could not save to localStorage:', e);
@@ -100,6 +106,10 @@
       if (savedWindow && ['1m', '5m', '10m', '30m', '1h'].includes(savedWindow)) {
         selectedWindow = savedWindow;
       }
+      const savedMesoWindow = localStorage.getItem(STORAGE_KEYS.SELECTED_MESO_WINDOW);
+      if (savedMesoWindow && ['1m', '5m', '10m', '30m', '1h'].includes(savedMesoWindow)) {
+        selectedMesoWindow = savedMesoWindow;
+      }
 
       // 4. Mute state
       const savedMute = localStorage.getItem(STORAGE_KEYS.IS_MUTED);
@@ -129,6 +139,9 @@
     expPct: 0.0,
     barPct: null,
     windows: {},
+    mesoVal: 0,
+    mesoFound: false,
+    mesoWindows: {},
     hotbarFound: false,
     quantities: {},
     alertActive: false,
@@ -185,6 +198,37 @@
   const expCropCanvas = document.getElementById('expCropCanvas');
   const expCropCtx = expCropCanvas.getContext('2d');
   const expOcrDebug = document.getElementById('expOcrDebug');
+
+  // Meso DOM Elements
+  const mesoHeroNum = document.getElementById('mesoHeroNum');
+  const mesoHeroGain = document.getElementById('mesoHeroGain');
+  const mesoHeroRate = document.getElementById('mesoHeroRate');
+  const mesoStatusMini = document.getElementById('mesoStatusMini');
+  const quickMesoVal = document.getElementById('quickMesoVal');
+  const quickMesoRate = document.getElementById('quickMesoRate');
+
+  const detailedMesoGraphTitle = document.getElementById('detailedMesoGraphTitle');
+  const statMesoGraphPeak = document.getElementById('statMesoGraphPeak');
+  const statMesoGraphAvg = document.getElementById('statMesoGraphAvg');
+  const statMesoGraphRate = document.getElementById('statMesoGraphRate');
+  const mesoSparklineCanvas = document.getElementById('mesoSparklineCanvas');
+  const mesoSparklineCtx = mesoSparklineCanvas ? mesoSparklineCanvas.getContext('2d') : null;
+  const mesoSparklineTooltip = document.getElementById('mesoSparklineTooltip');
+
+  const statSessionMesoDuration = document.getElementById('statSessionMesoDuration');
+  const statSessionInitialMeso = document.getElementById('statSessionInitialMeso');
+  const statSessionGainedMeso = document.getElementById('statSessionGainedMeso');
+  const statSessionSpentMeso = document.getElementById('statSessionSpentMeso');
+  const statSessionNetMeso = document.getElementById('statSessionNetMeso');
+  const statSessionRateMeso = document.getElementById('statSessionRateMeso');
+  const statSessionMesoOpacity = document.getElementById('statSessionMesoOpacity');
+  const statSessionMesoAnomalies = document.getElementById('statSessionMesoAnomalies');
+
+  const mesoPreviewToggle = document.getElementById('mesoPreviewToggle');
+  const mesoPreviewContent = document.getElementById('mesoPreviewContent');
+  const mesoCropCanvas = document.getElementById('mesoCropCanvas');
+  const mesoCropCtx = mesoCropCanvas ? mesoCropCanvas.getContext('2d') : null;
+  const mesoOcrDebug = document.getElementById('mesoOcrDebug');
 
   const hotbarGrid = document.getElementById('hotbarGrid');
   const configCellName = document.getElementById('configCellName');
@@ -382,7 +426,7 @@
     if (target) {
       target.classList.add('active');
       activeTab = tabId;
-      if (activeTab === 'exp') {
+      if (activeTab === 'exp' || activeTab === 'meso') {
         startSlidingChartLoop();
       }
     }
@@ -472,30 +516,64 @@
     selectedWindow = winKey;
     saveInputsToStorage();
 
-    document.querySelectorAll('.pill-btn').forEach(btn => {
+    document.querySelectorAll('.pill-btn:not(.meso-pill-btn)').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.window === selectedWindow);
     });
 
-    document.querySelectorAll('.window-row').forEach(row => {
+    document.querySelectorAll('.window-row:not(.meso-window-row)').forEach(row => {
       row.classList.toggle('active', row.dataset.window === selectedWindow);
     });
 
     updateWindowStatsUI();
   }
 
-  // Window Table Rows
-  document.querySelectorAll('.window-row').forEach(row => {
+  function selectMesoWindow(winKey) {
+    if (!WINDOW_SEC[winKey]) return;
+    selectedMesoWindow = winKey;
+    saveInputsToStorage();
+
+    document.querySelectorAll('.meso-pill-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.window === selectedMesoWindow);
+    });
+
+    document.querySelectorAll('.meso-window-row').forEach(row => {
+      row.classList.toggle('active', row.dataset.window === selectedMesoWindow);
+    });
+
+    updateMesoWindowStatsUI();
+  }
+
+  // EXP Window Table Rows & Pills
+  document.querySelectorAll('.window-row:not(.meso-window-row)').forEach(row => {
     row.addEventListener('click', () => {
       selectWindow(row.dataset.window);
     });
   });
-
-  // Window Pills (1m, 5m, 10m, 30m, 1h)
-  document.querySelectorAll('.pill-btn').forEach(btn => {
+  document.querySelectorAll('.pill-btn:not(.meso-pill-btn)').forEach(btn => {
     btn.addEventListener('click', () => {
       selectWindow(btn.dataset.window);
     });
   });
+
+  // Meso Window Table Rows & Pills
+  document.querySelectorAll('.meso-window-row').forEach(row => {
+    row.addEventListener('click', () => {
+      selectMesoWindow(row.dataset.window);
+    });
+  });
+  document.querySelectorAll('.meso-pill-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectMesoWindow(btn.dataset.window);
+    });
+  });
+
+  // Quick Meso Pill click on EXP tab switches to Meso tab
+  if (quickMesoVal && quickMesoVal.parentElement) {
+    quickMesoVal.parentElement.style.cursor = 'pointer';
+    quickMesoVal.parentElement.addEventListener('click', () => {
+      switchTab('meso');
+    });
+  }
 
   // Screen Capture (getDisplayMedia)
   async function startScreenCapture() {
@@ -726,8 +804,39 @@
       checkAlerts();
     }
 
+    // 3. Detect Meso Bar (Top-Right Inventory Window)
+    let fullFrameData = null;
+    try {
+      fullFrameData = offscreenCtx.getImageData(0, 0, videoW, videoH);
+    } catch (_) {}
+
+    if (fullFrameData) {
+      const mesoRes = mesoDetector.detect(fullFrameData, videoW, videoH, expRes.success ? expRes.scale : null);
+      if (mesoRes.success) {
+        const mesoVal = mesoRes.meso_value;
+        mesoTracker.addSample(mesoVal);
+        latestDetection.mesoVal = mesoVal;
+        latestDetection.mesoFound = true;
+        updateMesoHeroUI(mesoVal);
+        if (mesoRes.crop_data) {
+          updateMesoCropPreview(mesoRes.crop_data, mesoRes.raw_text);
+        }
+        if (mesoStatusMini) {
+          const hSide = (mesoRes.pos && mesoRes.pos.x > videoW * 0.5) ? 'Right' : 'Left';
+          const vSide = (mesoRes.pos && mesoRes.pos.y > videoH * 0.5) ? 'Bottom' : 'Top';
+          mesoStatusMini.textContent = `Live Sync (${vSide}-${hSide})`;
+        }
+      } else {
+        latestDetection.mesoFound = false;
+        if (mesoStatusMini) {
+          mesoStatusMini.textContent = mesoDetector.isLocked ? 'Sync Active (Verifying)' : 'Inventory Closed (Auto-Searching 1 Hz)';
+        }
+      }
+    }
+
     // Update Session & Window Statistics
     updateAllStatsUI();
+    updateAllMesoStatsUI();
     renderPipOverlay();
 
     // 1 Hz interval
@@ -799,6 +908,31 @@
     expBarFill.style.width = `${Math.min(100, Math.max(0, expPct))}%`;
   }
 
+  function updateMesoHeroUI(mesoVal) {
+    if (mesoHeroNum) mesoHeroNum.textContent = mesoVal.toLocaleString();
+    const session = mesoTracker.getSessionStats();
+    if (mesoHeroGain) {
+      const sign = session.net_meso >= 0 ? '+' : '';
+      mesoHeroGain.textContent = `${sign}${session.net_meso.toLocaleString()}`;
+      mesoHeroGain.style.color = session.net_meso >= 0 ? '#22c55e' : '#ef4444';
+    }
+    if (mesoHeroRate) {
+      const w5 = latestDetection.mesoWindows && latestDetection.mesoWindows['5m'] ? latestDetection.mesoWindows['5m'] : session;
+      const r = w5.meso_rate_hr || session.session_rate_hr || 0;
+      mesoHeroRate.textContent = `${r.toLocaleString()} / hr`;
+    }
+  }
+
+  function updateMesoCropPreview(cropData, rawText) {
+    if (!mesoCropCanvas || !mesoCropCtx) return;
+    mesoCropCanvas.width = cropData.width;
+    mesoCropCanvas.height = cropData.height;
+    mesoCropCtx.putImageData(new ImageData(cropData.data, cropData.width, cropData.height), 0, 0);
+    if (mesoOcrDebug) {
+      mesoOcrDebug.textContent = `Raw OCR: ${rawText}`;
+    }
+  }
+
   // Update EXP Crop Drawer Preview
   function updateExpCropPreview(cropData, rawText) {
     expCropCanvas.width = cropData.width;
@@ -812,6 +946,14 @@
     previewContent.style.display = isShown ? 'none' : 'flex';
     previewToggle.textContent = isShown ? '▶ Show Live EXP Bar Crop' : '▼ Hide Live EXP Bar Crop';
   });
+
+  if (mesoPreviewToggle && mesoPreviewContent) {
+    mesoPreviewToggle.addEventListener('click', () => {
+      const isShown = mesoPreviewContent.style.display === 'flex';
+      mesoPreviewContent.style.display = isShown ? 'none' : 'flex';
+      mesoPreviewToggle.textContent = isShown ? '▶ Show Live Meso Bar Crop' : '▼ Hide Live Meso Bar Crop';
+    });
+  }
 
   // Update Hotbar Cells
   function updateHotbarGridUI(cells) {
@@ -948,6 +1090,335 @@
     ctx.strokeStyle = key === selectedWindow ? '#38bdf8' : '#60a5fa';
     ctx.lineWidth = 1.2;
     ctx.stroke();
+  }
+
+  // Update Meso Window & Session Stats
+  function updateAllMesoStatsUI() {
+    latestDetection.mesoWindows = {
+      '1m': mesoTracker.getWindowGain(60),
+      '5m': mesoTracker.getWindowGain(300),
+      '10m': mesoTracker.getWindowGain(600),
+      '30m': mesoTracker.getWindowGain(1800),
+      '1h': mesoTracker.getWindowGain(3600)
+    };
+
+    for (const winKey of ['1m', '5m', '10m', '30m', '1h']) {
+      const win = latestDetection.mesoWindows[winKey];
+      if (!win) continue;
+      const gainEl = document.getElementById(`statRowGainMeso-${winKey}`);
+      const rateEl = document.getElementById(`statRowRateMeso-${winKey}`);
+
+      if (gainEl) gainEl.textContent = `+${win.gained_meso.toLocaleString()}`;
+      if (rateEl) rateEl.textContent = `${win.meso_rate_hr.toLocaleString()} / hr`;
+
+      drawMesoMiniSparkline(winKey, win.slices, win.max_slice);
+    }
+
+    updateMesoWindowStatsUI();
+
+    const session = mesoTracker.getSessionStats();
+    const durSec = session.session_duration;
+    const h = Math.floor(durSec / 3600).toString().padStart(2, '0');
+    const m = Math.floor((durSec % 3600) / 60).toString().padStart(2, '0');
+    const s = (durSec % 60).toString().padStart(2, '0');
+
+    if (statSessionMesoDuration) statSessionMesoDuration.textContent = `${h}:${m}:${s}`;
+    if (statSessionInitialMeso) statSessionInitialMeso.textContent = session.initial_meso.toLocaleString();
+    if (statSessionGainedMeso) statSessionGainedMeso.textContent = `+${session.total_gained_meso.toLocaleString()}`;
+    if (statSessionSpentMeso) statSessionSpentMeso.textContent = `-${session.total_spent_meso.toLocaleString()}`;
+    if (statSessionNetMeso) {
+      const sign = session.net_meso >= 0 ? '+' : '';
+      statSessionNetMeso.textContent = `${sign}${session.net_meso.toLocaleString()}`;
+      statSessionNetMeso.style.color = session.net_meso >= 0 ? '#ffd700' : '#ef4444';
+    }
+    if (statSessionRateMeso) statSessionRateMeso.textContent = `${session.session_rate_hr.toLocaleString()} / hr`;
+    if (statSessionMesoAnomalies) statSessionMesoAnomalies.textContent = session.anomalies_corrected;
+    if (statSessionMesoOpacity) {
+      if (latestDetection.mesoFound) {
+        statSessionMesoOpacity.textContent = 'Active (Auto-Contrast)';
+        statSessionMesoOpacity.style.color = '#a78bfa';
+      } else {
+        statSessionMesoOpacity.textContent = 'Closed (Searching)';
+        statSessionMesoOpacity.style.color = '#f59e0b';
+      }
+    }
+
+    // Update Quick Meso Pill on EXP tab
+    if (quickMesoVal) quickMesoVal.textContent = session.current_meso.toLocaleString();
+    if (quickMesoRate) {
+      const w5 = latestDetection.mesoWindows['5m'] || session;
+      const r = w5.meso_rate_hr || session.session_rate_hr || 0;
+      quickMesoRate.textContent = `${r.toLocaleString()} / hr`;
+    }
+  }
+
+  function updateMesoWindowStatsUI() {
+    const win = latestDetection.mesoWindows ? latestDetection.mesoWindows[selectedMesoWindow] : null;
+    if (!win) return;
+
+    if (detailedMesoGraphTitle) {
+      detailedMesoGraphTitle.textContent = `💰 Sliding Meso Rate (${selectedMesoWindow} Window)`;
+    }
+    if (statMesoGraphPeak) {
+      statMesoGraphPeak.textContent = `Peak: +${win.max_slice.toLocaleString()} MESOS`;
+    }
+    if (statMesoGraphAvg) {
+      statMesoGraphAvg.textContent = `Avg: ${(win.avg_slice || 0).toFixed(1)} Meso/s`;
+    }
+    if (statMesoGraphRate) {
+      statMesoGraphRate.textContent = `Rate: ${win.meso_rate_hr.toLocaleString()} / hr`;
+    }
+  }
+
+  function drawMesoMiniSparkline(key, slices, maxVal) {
+    const cvs = document.getElementById(`mesoMiniSparkline-${key}`);
+    if (!cvs) return;
+    const ctx = cvs.getContext('2d');
+    const w = cvs.width = 80;
+    const h = cvs.height = 20;
+
+    ctx.clearRect(0, 0, w, h);
+    if (!slices || slices.length === 0 || maxVal <= 0) {
+      ctx.fillStyle = '#22252a';
+      ctx.fillRect(0, h - 2, w, 1);
+      return;
+    }
+
+    const n = slices.length;
+    const stepX = w / (n - 1);
+    const effH = h - 4;
+
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const y = h - 2 - (slices[i] / maxVal) * effH;
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = key === selectedMesoWindow ? 'rgba(245, 158, 11, 0.35)' : 'rgba(245, 158, 11, 0.14)';
+    ctx.fill();
+
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const x = i * stepX;
+      const y = h - 2 - (slices[i] / maxVal) * effH;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = key === selectedMesoWindow ? '#fbbf24' : '#d97706';
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+  }
+
+  let slidingMesoMaxY = 50;
+  let hoverMesoChartPos = null;
+
+  function drawMesoSlidingChart() {
+    if (!mesoSparklineCanvas || !mesoSparklineCtx) return;
+    const w = mesoSparklineCanvas.width = mesoSparklineCanvas.clientWidth || 360;
+    const h = mesoSparklineCanvas.height = 90;
+
+    const padTop = 14;
+    const padBottom = 16;
+    const padLeft = 8;
+    const padRight = 8;
+    const effW = Math.max(10, w - padLeft - padRight);
+    const effH = Math.max(10, h - padTop - padBottom);
+
+    mesoSparklineCtx.clearRect(0, 0, w, h);
+
+    const now = Date.now() / 1000;
+    const winSec = WINDOW_SEC[selectedMesoWindow] || 300;
+    const tStart = now - winSec;
+
+    const cleanSamples = mesoTracker.history.filter(s => !s.is_outlier && s.timestamp >= tStart - 60 && s.timestamp <= now + 2);
+
+    const secGains = {};
+    for (const s of cleanSamples) {
+      if (s.delta_meso > 0) {
+        const sec = Math.floor(s.timestamp);
+        secGains[sec] = (secGains[sec] || 0) + s.delta_meso;
+      }
+    }
+
+    let smoothSec = 3;
+    if (winSec >= 3600) smoothSec = 30;
+    else if (winSec >= 1800) smoothSec = 15;
+    else if (winSec >= 600) smoothSec = 8;
+    else if (winSec >= 300) smoothSec = 5;
+
+    let peakVal = 0;
+    const startSec = Math.floor(tStart);
+    const endSec = Math.ceil(now);
+    const smoothedSec = {};
+
+    for (let s = startSec - smoothSec; s <= endSec + 1; s++) {
+      let sum = 0;
+      for (let k = 0; k < smoothSec; k++) {
+        sum += (secGains[s - k] || 0);
+      }
+      const val = sum / smoothSec;
+      smoothedSec[s] = val;
+      if (s >= startSec && val > peakVal) {
+        peakVal = val;
+      }
+    }
+
+    const targetMaxY = peakVal > 0 ? getNiceMax(peakVal * 1.25) : 50;
+    slidingMesoMaxY += (targetMaxY - slidingMesoMaxY) * 0.08;
+    if (slidingMesoMaxY < 10) slidingMesoMaxY = 10;
+
+    mesoSparklineCtx.lineWidth = 1;
+    mesoSparklineCtx.setLineDash([3, 4]);
+
+    const gridLines = [
+      { ratio: 1.0, label: `+${Math.round(slidingMesoMaxY).toLocaleString()}` },
+      { ratio: 0.5, label: `+${Math.round(slidingMesoMaxY * 0.5).toLocaleString()}` },
+      { ratio: 0.0, label: '0' }
+    ];
+
+    for (const gl of gridLines) {
+      const y = padTop + effH * (1.0 - gl.ratio);
+      mesoSparklineCtx.strokeStyle = '#22252a';
+      mesoSparklineCtx.beginPath();
+      mesoSparklineCtx.moveTo(padLeft, y);
+      mesoSparklineCtx.lineTo(padLeft + effW, y);
+      mesoSparklineCtx.stroke();
+
+      if (gl.ratio > 0 && peakVal > 0) {
+        mesoSparklineCtx.fillStyle = '#6b7280';
+        mesoSparklineCtx.font = '9px monospace';
+        mesoSparklineCtx.textAlign = 'right';
+        mesoSparklineCtx.fillText(gl.label, padLeft + effW - 4, y - 2);
+      }
+    }
+
+    const timeMarks = [
+      { ratio: 0.0, label: `-${selectedMesoWindow}` },
+      { ratio: 0.5, label: `-${formatTimeShort(winSec / 2)}` },
+      { ratio: 1.0, label: 'Now' }
+    ];
+
+    for (const tm of timeMarks) {
+      const x = padLeft + tm.ratio * effW;
+      mesoSparklineCtx.strokeStyle = '#22252a';
+      mesoSparklineCtx.beginPath();
+      mesoSparklineCtx.moveTo(x, padTop);
+      mesoSparklineCtx.lineTo(x, padTop + effH);
+      mesoSparklineCtx.stroke();
+
+      mesoSparklineCtx.fillStyle = '#6b7280';
+      mesoSparklineCtx.font = '9px monospace';
+      mesoSparklineCtx.textAlign = tm.ratio === 0 ? 'left' : (tm.ratio === 1 ? 'right' : 'center');
+      mesoSparklineCtx.fillText(tm.label, x, h - 3);
+    }
+    mesoSparklineCtx.setLineDash([]);
+
+    if (cleanSamples.length < 2 || peakVal <= 0) {
+      mesoSparklineCtx.fillStyle = '#4b5563';
+      mesoSparklineCtx.font = 'italic 11px sans-serif';
+      mesoSparklineCtx.textAlign = 'center';
+      mesoSparklineCtx.fillText('Live sliding battle analysis (awaiting Meso gains...)', w / 2, padTop + effH / 2 + 4);
+
+      mesoSparklineCtx.strokeStyle = '#2d3748';
+      mesoSparklineCtx.beginPath();
+      mesoSparklineCtx.moveTo(padLeft, padTop + effH);
+      mesoSparklineCtx.lineTo(padLeft + effW, padTop + effH);
+      mesoSparklineCtx.stroke();
+      return;
+    }
+
+    const numSteps = Math.min(240, Math.max(80, Math.floor(effW / 2)));
+    const points = [];
+
+    for (let i = 0; i <= numSteps; i++) {
+      const ratio = i / numSteps;
+      const x = padLeft + ratio * effW;
+      const t = tStart + ratio * winSec;
+
+      const s0 = Math.floor(t);
+      const frac = t - s0;
+      const v0 = smoothedSec[s0] || 0;
+      const v1 = smoothedSec[s0 + 1] || 0;
+      const val = v0 + (v1 - v0) * frac;
+
+      const y = padTop + effH * (1.0 - Math.min(1.0, Math.max(0.0, val / slidingMesoMaxY)));
+      points.push({ x, y, val, t });
+    }
+
+    const gradient = mesoSparklineCtx.createLinearGradient(0, padTop, 0, padTop + effH);
+    gradient.addColorStop(0, 'rgba(245, 158, 11, 0.40)');
+    gradient.addColorStop(0.8, 'rgba(245, 158, 11, 0.08)');
+    gradient.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
+
+    mesoSparklineCtx.beginPath();
+    mesoSparklineCtx.moveTo(points[0].x, padTop + effH);
+    for (let i = 0; i < points.length; i++) {
+      mesoSparklineCtx.lineTo(points[i].x, points[i].y);
+    }
+    mesoSparklineCtx.lineTo(points[points.length - 1].x, padTop + effH);
+    mesoSparklineCtx.closePath();
+    mesoSparklineCtx.fillStyle = gradient;
+    mesoSparklineCtx.fill();
+
+    mesoSparklineCtx.beginPath();
+    for (let i = 0; i < points.length; i++) {
+      if (i === 0) mesoSparklineCtx.moveTo(points[i].x, points[i].y);
+      else mesoSparklineCtx.lineTo(points[i].x, points[i].y);
+    }
+    mesoSparklineCtx.strokeStyle = '#fbbf24';
+    mesoSparklineCtx.lineWidth = 2;
+    mesoSparklineCtx.shadowColor = '#f59e0b';
+    mesoSparklineCtx.shadowBlur = 6;
+    mesoSparklineCtx.stroke();
+    mesoSparklineCtx.shadowBlur = 0;
+
+    const lastPt = points[points.length - 1];
+    mesoSparklineCtx.beginPath();
+    mesoSparklineCtx.arc(lastPt.x, lastPt.y, 3.5, 0, Math.PI * 2);
+    mesoSparklineCtx.fillStyle = '#fbbf24';
+    mesoSparklineCtx.fill();
+    mesoSparklineCtx.strokeStyle = '#ffffff';
+    mesoSparklineCtx.lineWidth = 1.5;
+    mesoSparklineCtx.stroke();
+
+    if (hoverMesoChartPos && hoverMesoChartPos.x >= padLeft && hoverMesoChartPos.x <= padLeft + effW) {
+      const hx = hoverMesoChartPos.x;
+      const ratio = (hx - padLeft) / effW;
+      const tHover = tStart + ratio * winSec;
+      const s0 = Math.floor(tHover);
+      const frac = tHover - s0;
+      const v0 = smoothedSec[s0] || 0;
+      const v1 = smoothedSec[s0 + 1] || 0;
+      const hVal = v0 + (v1 - v0) * frac;
+      const hy = padTop + effH * (1.0 - Math.min(1.0, Math.max(0.0, hVal / slidingMesoMaxY)));
+
+      mesoSparklineCtx.strokeStyle = '#ffd700';
+      mesoSparklineCtx.lineWidth = 1;
+      mesoSparklineCtx.setLineDash([2, 3]);
+      mesoSparklineCtx.beginPath();
+      mesoSparklineCtx.moveTo(hx, padTop);
+      mesoSparklineCtx.lineTo(hx, padTop + effH);
+      mesoSparklineCtx.stroke();
+      mesoSparklineCtx.setLineDash([]);
+
+      mesoSparklineCtx.beginPath();
+      mesoSparklineCtx.arc(hx, hy, 4, 0, Math.PI * 2);
+      mesoSparklineCtx.fillStyle = '#ffd700';
+      mesoSparklineCtx.fill();
+      mesoSparklineCtx.strokeStyle = '#ffffff';
+      mesoSparklineCtx.lineWidth = 1.5;
+      mesoSparklineCtx.stroke();
+
+      const secAgo = Math.max(0, Math.round(now - tHover));
+      const hrRate = Math.round(hVal * 3600);
+      if (mesoSparklineTooltip) {
+        mesoSparklineTooltip.style.display = 'block';
+        mesoSparklineTooltip.innerHTML = `-${formatTimeShort(secAgo)}: <strong>+${Math.round(hVal).toLocaleString()} Meso/s</strong> (${hrRate.toLocaleString()}/hr)`;
+      }
+    }
   }
 
   // Sliding Chart Engine
@@ -1199,6 +1670,8 @@
     function anim() {
       if (activeTab === 'exp') {
         drawSlidingChart();
+      } else if (activeTab === 'meso') {
+        drawMesoSlidingChart();
       }
       requestAnimationFrame(anim);
     }
@@ -1218,6 +1691,20 @@
     hoverChartPos = null;
     sparklineTooltip.style.display = 'none';
   });
+
+  if (mesoSparklineCanvas) {
+    mesoSparklineCanvas.addEventListener('mousemove', (e) => {
+      const rect = mesoSparklineCanvas.getBoundingClientRect();
+      hoverMesoChartPos = {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+      };
+    });
+    mesoSparklineCanvas.addEventListener('mouseleave', () => {
+      hoverMesoChartPos = null;
+      if (mesoSparklineTooltip) mesoSparklineTooltip.style.display = 'none';
+    });
+  }
 
   // Picture-in-Picture Floating Overlay
   function renderPipOverlay() {
@@ -1259,19 +1746,33 @@
     const win = latestDetection.windows['5m'] || tracker.getWindowGain(300);
     pipCtx.fillStyle = '#949ba4';
     pipCtx.font = '11px sans-serif';
-    pipCtx.fillText('5m Rate:', 12, 102);
+    pipCtx.fillText('EXP/hr:', 12, 98);
 
     pipCtx.fillStyle = '#22c55e';
-    pipCtx.font = 'bold 13px monospace';
-    pipCtx.fillText(`${win.exp_rate_hr.toLocaleString()} / hr`, 70, 102);
+    pipCtx.font = 'bold 12px monospace';
+    pipCtx.fillText(`${win.exp_rate_hr.toLocaleString()}/hr`, 62, 98);
 
     pipCtx.fillStyle = '#949ba4';
     pipCtx.font = '11px sans-serif';
-    pipCtx.fillText('Session Gain:', 12, 124);
+    pipCtx.fillText('EXP Gain:', 185, 98);
 
     pipCtx.fillStyle = '#f2f3f5';
+    pipCtx.font = 'bold 12px monospace';
+    pipCtx.fillText(`+${tracker.totalGainedExp.toLocaleString()}`, 245, 98);
+
+    // Meso Row
+    const mesoWin = latestDetection.mesoWindows && latestDetection.mesoWindows['5m'] ? latestDetection.mesoWindows['5m'] : mesoTracker.getWindowGain(300);
+    pipCtx.fillStyle = '#ffd700';
+    pipCtx.font = 'bold 11px sans-serif';
+    pipCtx.fillText('💰 Mesos:', 12, 120);
+
+    pipCtx.fillStyle = '#ffffff';
     pipCtx.font = 'bold 13px monospace';
-    pipCtx.fillText(`+${tracker.totalGainedExp.toLocaleString()}`, 100, 124);
+    pipCtx.fillText(latestDetection.mesoVal.toLocaleString(), 72, 120);
+
+    pipCtx.fillStyle = '#ffd700';
+    pipCtx.font = 'bold 11px monospace';
+    pipCtx.fillText(`(+${mesoWin.meso_rate_hr.toLocaleString()}/hr)`, 210, 120);
 
     // Monitored Item Status
     const monKey = `${selectedCell[0]},${selectedCell[1]}`;
@@ -1279,15 +1780,15 @@
     const monQty = latestDetection.quantities[monKey];
 
     pipCtx.fillStyle = '#1e1f22';
-    pipCtx.fillRect(12, 138, w - 24, 42);
+    pipCtx.fillRect(12, 134, w - 24, 46);
 
     pipCtx.fillStyle = '#dbdee1';
     pipCtx.font = '12px sans-serif';
-    pipCtx.fillText(`Monitored Slot [${monKeyName}]:`, 20, 163);
+    pipCtx.fillText(`Monitored Slot [${monKeyName}]:`, 20, 162);
 
     pipCtx.fillStyle = (monQty !== null && monQty !== undefined && monQty < (cellAlerts[monKey].threshold || 20)) ? '#ef4444' : '#ffcc00';
     pipCtx.font = 'bold 18px monospace';
-    pipCtx.fillText(monQty !== null && monQty !== undefined ? `${monQty} left` : 'No data', 240, 165);
+    pipCtx.fillText(monQty !== null && monQty !== undefined ? `${monQty} left` : 'No data', 240, 164);
   }
 
   btnPip.addEventListener('click', async () => {
@@ -1317,6 +1818,7 @@
   btnPause.addEventListener('click', () => {
     isPaused = !isPaused;
     tracker.isPaused = isPaused;
+    mesoTracker.isPaused = isPaused;
     btnPause.innerHTML = isPaused ? '▶ Resume' : '⏸ Pause';
     if (isPaused) {
       updateStatus('PAUSED', 'Tracking paused', 'paused');
@@ -1326,10 +1828,14 @@
   btnReset.addEventListener('click', () => {
     if (confirm('Reset tracking session data?')) {
       tracker.reset();
+      mesoTracker.reset();
       expDetector.resetLock();
       hotbarDetector.resetLock();
+      mesoDetector.resetLock();
       updateExpHeroUI(0, 0.0);
+      updateMesoHeroUI(0);
       updateAllStatsUI();
+      updateAllMesoStatsUI();
       updateStatus('WAITING', 'Session reset. Re-calibrating...', 'searching');
     }
   });
@@ -1342,16 +1848,29 @@
 
   btnExport.addEventListener('click', () => {
     const cleanSamples = tracker.history.filter(s => !s.is_outlier);
-    let csv = 'Timestamp,EXP_Value,EXP_Percentage,Delta_EXP,Delta_Percentage\n';
-    for (const s of cleanSamples) {
-      const dateStr = new Date(s.timestamp * 1000).toISOString();
-      csv += `${dateStr},${s.exp_val},${s.exp_pct},${s.delta_exp},${s.delta_pct}\n`;
+    const mesoSamples = mesoTracker.history.filter(s => !s.is_outlier);
+    let csv = 'Timestamp,EXP_Value,EXP_Percentage,Delta_EXP,Delta_Percentage,Meso_Value,Delta_Meso\n';
+    const allTimestamps = new Set();
+    cleanSamples.forEach(s => allTimestamps.add(Math.floor(s.timestamp)));
+    mesoSamples.forEach(s => allTimestamps.add(Math.floor(s.timestamp)));
+    const sortedTimes = Array.from(allTimestamps).sort((a, b) => a - b);
+
+    const expMap = {};
+    cleanSamples.forEach(s => expMap[Math.floor(s.timestamp)] = s);
+    const mesoMap = {};
+    mesoSamples.forEach(s => mesoMap[Math.floor(s.timestamp)] = s);
+
+    for (const t of sortedTimes) {
+      const e = expMap[t] || {};
+      const m = mesoMap[t] || {};
+      const dateStr = new Date(t * 1000).toISOString();
+      csv += `${dateStr},${e.exp_val ?? ''},${e.exp_pct ?? ''},${e.delta_exp ?? ''},${e.delta_pct ?? ''},${m.meso_val ?? ''},${m.delta_meso ?? ''}\n`;
     }
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `MapleStory_EXP_Session_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `MapleStory_EXP_Meso_Session_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   });
@@ -1381,6 +1900,15 @@
 
             const expRes = expDetector.detect(roiData, img.width, img.height);
             const hotbarRes = hotbarDetector.detect(roiData, expRes.scale || 1.0);
+            const fullImgData = offscreenCtx.getImageData(0, 0, img.width, img.height);
+            const mesoRes = mesoDetector.detect(fullImgData, img.width, img.height, expRes.scale || 1.0);
+            if (mesoRes.success) {
+              mesoTracker.addSample(mesoRes.meso_value);
+              latestDetection.mesoVal = mesoRes.meso_value;
+              latestDetection.mesoFound = true;
+              updateMesoHeroUI(mesoRes.meso_value);
+              if (mesoRes.crop_data) updateMesoCropPreview(mesoRes.crop_data, mesoRes.raw_text);
+            }
 
             if (expRes.success) {
               tracker.addSample(expRes.exp_value, expRes.exp_pct, expRes.bar_pct);
@@ -1416,7 +1944,9 @@
   initHotbarDOM();
   btnMute.innerHTML = isMuted ? '🔇 Unmute' : '🔊 Sound On';
   selectWindow(selectedWindow);
+  selectMesoWindow(selectedMesoWindow);
   updateAllStatsUI();
+  updateAllMesoStatsUI();
   startSlidingChartLoop();
   processFrame();
 })();
